@@ -4,10 +4,16 @@
 package main
 
 import (
+	"os/exec"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
 )
+
+// openExternal oeffnet eine URL im Standard-Browser (nicht im WebView).
+func openExternal(url string) {
+	_ = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+}
 
 var (
 	user32            = windows.NewLazySystemDLL("user32.dll")

@@ -270,6 +270,7 @@ func main() {
 	must(w.Bind("goWinMin", func() error { winMinimize(hwnd); return nil }))
 	must(w.Bind("goWinMax", func() error { winToggleMax(hwnd); return nil }))
 	must(w.Bind("goWinClose", func() error { winClose(hwnd); return nil }))
+	must(w.Bind("goOpenExternal", func(url string) error { openExternal(url); return nil }))
 
 	// --- Go-Funktionen fuer JavaScript verfuegbar machen (kein HTTP) ---
 
