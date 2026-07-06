@@ -545,11 +545,13 @@ async function loadShips(){
   try{
     const r = await fetch(API + "/ships");
     const list = await r.json();
-    ships = list.map(s=>({
-      value: s.name||"",
-      label: `${s.cargo||0} SCU · ${s.manufacturerCode||''}`,
-      cargo: s.cargo||0
-    })).sort((a,b)=> a.value.localeCompare(b.value));
+    ships = list
+      .filter(s=> (s.cargo||0) > 0)   // nur Schiffe mit Frachtkapazitaet zeigen
+      .map(s=>({
+        value: s.name||"",
+        label: `${s.cargo} SCU · ${s.manufacturerCode||''}`,
+        cargo: s.cargo
+      })).sort((a,b)=> a.value.localeCompare(b.value));
     shipByName = new Map(list.map(s=>[(s.name||"").toLowerCase(), s.cargo||0]));
   }catch(e){ /* Schiff bleibt freies Textfeld */ }
 }

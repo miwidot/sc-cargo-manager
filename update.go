@@ -15,7 +15,7 @@ import (
 )
 
 // version ist die aktuelle Programmversion (bei Release erhoehen + Tag vX.Y.Z pushen).
-const version = "1.0.7"
+const version = "1.0.8"
 
 const releaseAPI = "https://api.github.com/repos/miwidot/sc-cargo-manager/releases/latest"
 
