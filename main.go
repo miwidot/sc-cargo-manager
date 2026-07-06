@@ -11,6 +11,7 @@ package main
 
 import (
 	_ "embed"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,6 +20,7 @@ import (
 	"runtime"
 	"slices"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -27,6 +29,15 @@ import (
 
 //go:embed web/index.html
 var indexHTML string
+
+//go:embed web/hero-asteroids.webp
+var heroBG []byte
+
+// pageHTML setzt das eingebettete Hintergrundbild als Data-URI in die UI ein.
+func pageHTML() string {
+	dataURI := "data:image/webp;base64," + base64.StdEncoding.EncodeToString(heroBG)
+	return strings.Replace(indexHTML, "__HERO_BG__", dataURI, 1)
+}
 
 // ---------------------------------------------------------------------------
 // Datenmodell + JSON-Persistenz
@@ -310,7 +321,7 @@ func main() {
 		return true, nil
 	}))
 
-	w.SetHtml(indexHTML)
+	w.SetHtml(pageHTML())
 	w.Run()
 }
 
