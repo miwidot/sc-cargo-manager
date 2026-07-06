@@ -15,7 +15,7 @@ import (
 )
 
 // version ist die aktuelle Programmversion (bei Release erhoehen + Tag vX.Y.Z pushen).
-const version = "1.0.6"
+const version = "1.0.7"
 
 const releaseAPI = "https://api.github.com/repos/miwidot/sc-cargo-manager/releases/latest"
 
@@ -143,9 +143,25 @@ func download(url, dest string) error {
 	return f.Close()
 }
 
-// cleanupOldUpdate entfernt die .old-Datei vom letzten Update (beim Start aufrufen).
+// cleanupOldUpdate entfernt Reste vom letzten Update (.old, .new) beim Start.
+// Die .old ist direkt nach dem Update evtl. noch gesperrt (alter Prozess beendet
+// sich gerade) -> im Hintergrund mehrfach versuchen, bis es klappt.
 func cleanupOldUpdate() {
-	if exe, err := os.Executable(); err == nil {
-		_ = os.Remove(exe + ".old")
+	exe, err := os.Executable()
+	if err != nil {
+		return
 	}
+	_ = os.Remove(exe + ".new") // Download-Rest, falls ein Update abbrach
+	old := exe + ".old"
+	if _, err := os.Stat(old); err != nil {
+		return // keine alte Version vorhanden
+	}
+	go func() {
+		for i := 0; i < 30; i++ { // bis ~9s: warten bis alter Prozess beendet ist
+			if os.Remove(old) == nil {
+				return
+			}
+			time.Sleep(300 * time.Millisecond)
+		}
+	}()
 }
