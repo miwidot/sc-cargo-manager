@@ -19,22 +19,28 @@ var (
 	pShowWindow       = user32.NewProc("ShowWindow")
 	pIsZoomed         = user32.NewProc("IsZoomed")
 	pPostMessage      = user32.NewProc("PostMessageW")
+	pCallWindowProc   = user32.NewProc("CallWindowProcW")
 )
 
 const (
 	gwlStyle        = ^uintptr(15) // GWL_STYLE = -16
+	gwlpWndProc     = ^uintptr(3)  // GWLP_WNDPROC = -4
 	wsCaption       = 0x00C00000
 	swpFrameChanged = 0x0020
 	swpNoMove       = 0x0002
 	swpNoSize       = 0x0001
 	swpNoZOrder     = 0x0004
 	wmNCLButtonDown = 0x00A1
+	wmNCCalcSize    = 0x0083
 	htCaption       = 2
 	wmClose         = 0x0010
 	swMinimize      = 6
 	swMaximize      = 3
 	swRestore       = 9
 )
+
+// Referenz auf den originalen WndProc (fuer CallWindowProc im Subclass).
+var origWndProc uintptr
 
 func hwndOf(win unsafe.Pointer) uintptr { return uintptr(win) }
 
@@ -43,6 +49,27 @@ func makeFrameless(hwnd uintptr) {
 	style, _, _ := pGetWindowLongPtr.Call(hwnd, gwlStyle)
 	style &^= wsCaption
 	pSetWindowLongPtr.Call(hwnd, gwlStyle, style)
+	pSetWindowPos.Call(hwnd, 0, 0, 0, 0, 0, swpFrameChanged|swpNoMove|swpNoSize|swpNoZOrder)
+}
+
+// customFrame subclasst den WndProc und faengt WM_NCCALCSIZE ab: der obere
+// Rahmen-Inset wird entfernt (Client reicht bis zur Fenster-Oberkante) -> kein
+// weisser 1px-Streifen mehr. Seiten/unten behalten den Rahmen zum Resizen.
+// Bei maximiertem Fenster bleibt der Standard-Inset (sonst Clipping).
+func customFrame(hwnd uintptr) {
+	cb := windows.NewCallback(func(hw, msg, wp, lp uintptr) uintptr {
+		if msg == wmNCCalcSize && wp != 0 {
+			top := *(*int32)(unsafe.Pointer(lp + 4)) // rgrc[0].top (RECT: left@0, top@4)
+			ret, _, _ := pCallWindowProc.Call(origWndProc, hw, msg, wp, lp)
+			if z, _, _ := pIsZoomed.Call(hw); z == 0 {
+				*(*int32)(unsafe.Pointer(lp + 4)) = top // Client bis Oberkante -> kein Top-Rahmen
+			}
+			return ret
+		}
+		ret, _, _ := pCallWindowProc.Call(origWndProc, hw, msg, wp, lp)
+		return ret
+	})
+	origWndProc, _, _ = pSetWindowLongPtr.Call(hwnd, gwlpWndProc, cb)
 	pSetWindowPos.Call(hwnd, 0, 0, 0, 0, 0, swpFrameChanged|swpNoMove|swpNoSize|swpNoZOrder)
 }
 
