@@ -45,6 +45,7 @@ func checkUpdate() (UpdateInfo, error) {
 	client := &http.Client{Timeout: 15 * time.Second}
 	req, _ := http.NewRequest("GET", releaseAPI, nil)
 	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("User-Agent", "sc-cargo-manager") // GitHub API verlangt einen User-Agent (sonst 403)
 	resp, err := client.Do(req)
 	if err != nil {
 		return info, err
@@ -121,7 +122,9 @@ func applyUpdate(url string) error {
 
 func download(url, dest string) error {
 	client := &http.Client{Timeout: 5 * time.Minute}
-	resp, err := client.Get(url)
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Set("User-Agent", "sc-cargo-manager")
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
