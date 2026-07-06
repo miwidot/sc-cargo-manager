@@ -1,0 +1,1064 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SC Cargo Manager</title>
+<style>
+  :root{
+    --bg:#05080f; --panel:#111823; --panel2:#0d141d; --line:#1e2a3a;
+    --txt:#c9d6e5; --muted:#6b7d93; --accent:#37c0f6; --accent2:#00d68f;
+    --warn:#ffb020; --danger:#ff5470; --gold:#ffd166;
+  }
+  *{box-sizing:border-box}
+  /* Hintergrund im Stil von citizenhq.space: radialer Blau-Verlauf oben, Scanlines, Vignette */
+  body{
+    margin:0; color:var(--txt);
+    font-family:"Segoe UI",Roboto,system-ui,sans-serif; font-size:14px;
+    background:#05080f;
+    background-image:radial-gradient(130% 105% at 50% -15%, #1d3f70 0%, #0d1e3c 32%, #060c18 66%, #05080f 100%);
+    background-attachment:fixed;
+    position:relative; overflow-x:hidden; min-height:100vh;
+  }
+  body::before{ /* Scanlines */
+    content:""; pointer-events:none; position:fixed; inset:0; z-index:60; opacity:.35;
+    background-image:repeating-linear-gradient(0deg,#0000 0 2px,#0000002e 3px,#0000 4px);
+  }
+  body::after{ /* Vignette nach unten/aussen */
+    content:""; pointer-events:none; position:fixed; inset:0; z-index:61;
+    background:radial-gradient(120% 100% at 50% 0,#0000 55%,#04060d8c 100%);
+  }
+  header{
+    display:flex; align-items:center; gap:12px; padding:14px 22px;
+    border-bottom:1px solid var(--line); background:rgba(7,11,22,.72); backdrop-filter:blur(8px);
+    position:sticky; top:0; z-index:5;
+  }
+  header .logo{
+    width:30px;height:30px;border:2px solid var(--accent);border-radius:6px;
+    display:grid;place-items:center;color:var(--accent);font-weight:800;transform:rotate(45deg);
+  }
+  header .logo span{transform:rotate(-45deg)}
+  header h1{font-size:16px;letter-spacing:.14em;text-transform:uppercase;margin:0;font-weight:700}
+  header .sub{color:var(--muted);font-size:12px;margin-left:16px}
+  .ver{color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.05em;margin-left:2px}
+  .gear{background:none;border:1px solid var(--line);color:var(--muted);width:34px;height:34px;border-radius:8px;cursor:pointer;font-size:16px;margin-left:12px;line-height:1}
+  .gear:hover{border-color:var(--accent);color:var(--accent)}
+  .update-bar{background:linear-gradient(90deg,rgba(55,192,246,.16),rgba(0,214,143,.16));border-bottom:1px solid var(--accent);color:var(--txt);padding:9px 22px;font-size:13px;display:flex;align-items:center;gap:12px;justify-content:center}
+  .update-bar[hidden]{display:none}
+  .update-bar b{color:var(--accent)}
+  .update-bar button{background:linear-gradient(180deg,#37c0f6,#1a9fd4);border:none;color:#04121b;font-weight:700;padding:6px 14px;border-radius:7px;cursor:pointer;font-size:12px}
+  .update-bar button:hover{filter:brightness(1.08)}
+  .ship-box{margin-left:auto;display:flex;align-items:center;gap:9px}
+  .ship-lbl{color:var(--accent);font-size:12px;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;font-weight:700}
+  .ship-box .combo{width:210px}
+  .ship-box input{padding:7px 10px;font-size:13px;border-color:var(--accent);background:rgba(55,192,246,.10);color:var(--accent)}
+  .ship-box input::placeholder{color:var(--accent);opacity:.7}
+  .ship-cap{color:var(--accent2);font-size:12px;font-weight:700;white-space:nowrap;min-width:56px}
+  @media(max-width:720px){.ship-lbl{display:none}.ship-box .combo{width:150px}}
+  .tabs{display:flex;gap:4px;padding:0 22px;border-bottom:1px solid var(--line);background:rgba(7,11,22,.6);backdrop-filter:blur(8px);position:sticky;top:59px;z-index:4}
+  .tab{background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);padding:12px 18px;cursor:pointer;font-size:13px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;margin-bottom:-1px}
+  .tab:hover{color:var(--txt)}
+  .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+  .tab-panel{display:grid;gap:22px}
+  .tab-panel[hidden]{display:none}
+  select{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:9px 11px;border-radius:8px;font-size:14px;outline:none;font-family:inherit;cursor:pointer}
+  .chk{margin:0;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--txt);text-transform:none;letter-spacing:normal}
+  .set-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .sc-btn-sec{background:none;border:1px solid var(--line);color:var(--txt);padding:8px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600}
+  .sc-btn-sec:hover{border-color:var(--accent);color:var(--accent)}
+  .chk input{width:auto}
+  /* Rundreise-Karten (roundtrip) — gut lesbar statt dichter Tabelle */
+  .loop{border:1px solid var(--line);border-radius:12px;margin-bottom:14px;overflow:hidden;background:var(--panel2)}
+  .loop-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 16px;background:rgba(0,214,143,.08);border-bottom:1px solid var(--line);font-size:13px}
+  .loop-head .lh-sys{color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700;font-size:12px}
+  .loop-total{color:var(--accent2);font-weight:800;font-size:16px;white-space:nowrap}
+  .leg{display:grid;grid-template-columns:48px 1fr auto;gap:14px;align-items:center;padding:12px 16px}
+  .leg + .leg{border-top:1px solid #131c27}
+  .leg-dir{font-size:11px;font-weight:800;letter-spacing:.06em;color:var(--muted)}
+  .leg.ret .leg-dir{color:var(--accent)}
+  .leg-title{font-weight:700}
+  .leg-route{color:var(--muted);font-size:12px;margin-top:3px}
+  .leg-route .arrow{color:var(--accent);margin:0 7px;font-weight:700}
+  .leg-nums{text-align:right;white-space:nowrap}
+  .leg-price{color:var(--txt);font-size:12px}
+  .leg-profit{color:var(--accent2);font-weight:700;font-size:13px;margin-top:2px}
+  .leg-age{font-size:11px;color:var(--muted);margin-top:3px}
+  .stale{color:var(--warn)}
+  .leg-buy{font-size:13px;color:var(--txt);margin-bottom:2px}
+  .leg-buy b{color:var(--accent)}
+  .buy-full{color:var(--accent2);font-size:11px;font-weight:700}
+  .buy-part{color:var(--warn);font-size:11px}
+  select:focus{border-color:var(--accent)}
+  .wrap{width:100%;max-width:1500px;margin:0 auto;padding:22px;display:grid;gap:22px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+  @media(max-width:840px){.grid{grid-template-columns:1fr}}
+  .card{background:rgba(15,23,37,.74);backdrop-filter:blur(6px);border:1px solid var(--line);border-radius:12px;padding:18px}
+  .card h2{margin:0 0 14px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:700}
+  label{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin:0 0 5px}
+  .field{margin-bottom:13px}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  input{
+    width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);
+    padding:9px 11px;border-radius:8px;font-size:14px;outline:none;font-family:inherit;
+  }
+  input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(55,192,246,.12)}
+  input::placeholder{color:#455467}
+  .hint{font-size:11px;color:var(--muted);margin-top:4px}
+  /* Menge: Anzahl x Container */
+  .qty-row{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+  .qty-row input{width:90px}
+  .qty-row select{width:auto}
+  .qty-eq{margin-left:auto;white-space:nowrap}
+  .qty-eq b{color:var(--accent);font-size:15px}
+  .hint.cap-ok{color:var(--accent2);font-weight:600}
+  .hint.cap-over{color:var(--danger);font-weight:700}
+  button.primary{
+    width:100%;margin-top:6px;background:linear-gradient(180deg,#37c0f6,#1a9fd4);
+    border:none;color:#04121b;font-weight:700;padding:11px;border-radius:8px;cursor:pointer;
+    letter-spacing:.06em;text-transform:uppercase;font-size:13px;
+  }
+  button.primary:hover{filter:brightness(1.08)}
+  button.primary:disabled{opacity:.45;cursor:not-allowed}
+
+  /* Best-buyer panel */
+  #best{min-height:120px}
+  .best-empty{color:var(--muted);font-size:13px;padding:8px 0}
+  .best-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
+  .best-head b{color:var(--accent);font-size:15px}
+  .buyer{
+    display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:10px 12px;border-radius:9px;
+    background:var(--panel2);border:1px solid var(--line);margin-bottom:8px;
+  }
+  .buyer.top{border-color:var(--accent2);box-shadow:0 0 0 1px rgba(0,214,143,.25) inset}
+  .buyer .name{font-weight:600}
+  .buyer .sys{color:var(--muted);font-size:12px}
+  .buyer .price{text-align:right;color:var(--gold);font-weight:700;white-space:nowrap}
+  .buyer .total{text-align:right;color:var(--accent2);font-size:12px}
+  .demand{font-size:12px;margin-top:4px;font-weight:600}
+  .demand.ok{color:var(--accent2)}
+  .demand.warn{color:var(--warn)}
+  .demand.na{color:var(--muted);font-weight:400}
+  .stock{color:var(--muted);font-weight:400}
+  .badge{display:inline-block;font-size:10px;padding:1px 7px;border-radius:20px;background:rgba(0,214,143,.15);color:var(--accent2);margin-left:6px;letter-spacing:.05em}
+  .profit{margin-top:6px;padding:10px 12px;border-radius:9px;background:rgba(0,214,143,.07);border:1px solid var(--line);font-size:13px}
+  .profit .val{font-weight:800;font-size:16px}
+  .pos{color:var(--accent2)} .neg{color:var(--danger)}
+  .spin{color:var(--muted);font-size:13px}
+
+  /* eigenes Dropdown (ersetzt natives datalist -> volle Theme-Kontrolle) */
+  .combo{position:relative}
+  .combo-menu{
+    position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:30;
+    background:var(--panel);border:1px solid var(--line);border-radius:9px;
+    max-height:270px;overflow-y:auto;box-shadow:0 14px 34px rgba(0,0,0,.55);
+  }
+  .combo-item{
+    display:flex;justify-content:space-between;align-items:center;gap:12px;
+    padding:9px 13px;cursor:pointer;font-size:13px;border-bottom:1px solid #131c27;
+  }
+  .combo-item:last-child{border-bottom:none}
+  .combo-item:hover,.combo-item.active{background:rgba(55,192,246,.15)}
+  .combo-item .ci-name{font-weight:500}
+  .combo-item .ci-lbl{color:var(--muted);font-size:12px;white-space:nowrap}
+  .combo-empty{padding:10px 13px;color:var(--muted);font-size:12px}
+  .combo-menu::-webkit-scrollbar{width:10px}
+  .combo-menu::-webkit-scrollbar-thumb{background:#25344a;border-radius:8px}
+  .combo-menu::-webkit-scrollbar-track{background:transparent}
+
+  /* table */
+  table{width:100%;border-collapse:collapse}
+  th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700;padding:8px 10px;border-bottom:1px solid var(--line)}
+  td{padding:9px 10px;border-bottom:1px solid #131c27;font-size:13px;vertical-align:middle}
+  tbody tr:hover{background:#0d151f}
+  .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  th.num{white-space:nowrap}
+  .mat{font-weight:600}
+  .del{background:none;border:1px solid var(--line);color:var(--muted);border-radius:6px;padding:4px 9px;cursor:pointer;font-size:12px}
+  .del:hover{border-color:var(--danger);color:var(--danger)}
+  .sellbtn{background:none;border:1px solid var(--line);color:var(--accent);border-radius:6px;padding:4px 9px;cursor:pointer;font-size:12px}
+  .sellbtn:hover{border-color:var(--accent)}
+  .empty{color:var(--muted);text-align:center;padding:30px}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--accent2);color:var(--accent2);padding:10px 18px;border-radius:8px;opacity:0;transition:opacity .25s;pointer-events:none;z-index:200}
+  .toast.show{opacity:1}
+  /* Log-Statistik */
+  .stats:empty{display:none}
+  .stats{margin-bottom:16px}
+  .stat-row{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:12px}
+  .stat{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:11px 16px;min-width:104px;flex:1}
+  .stat-v{font-size:20px;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums}
+  .stat-v.g{color:var(--accent2)}
+  .stat-l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
+  .mat-tags{display:flex;flex-wrap:wrap;gap:8px}
+  .mat-tag{background:var(--panel2);border:1px solid var(--line);border-radius:20px;padding:5px 12px;font-size:12px;color:var(--txt)}
+  .mat-tag b{color:var(--accent2)}
+  .target{color:var(--gold);font-weight:600}
+  td.over{color:var(--danger);font-weight:700}
+  .over{color:var(--danger)}
+  .t-sys{color:var(--muted);font-size:11px}
+  .muted{color:var(--muted)}
+
+  /* Ziel-Auswahl Modal */
+  .modal-overlay{position:fixed;inset:0;background:rgba(4,8,14,.74);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px}
+  .modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;width:min(640px,100%);max-height:88vh;display:flex;flex-direction:column;box-shadow:0 24px 70px rgba(0,0,0,.6)}
+  .modal-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:18px 20px;border-bottom:1px solid var(--line)}
+  .modal-head h3{margin:0;font-size:16px;color:var(--accent)}
+  .modal-sub{color:var(--muted);font-size:13px;margin-top:4px}
+  .modal-x{background:none;border:1px solid var(--line);color:var(--muted);border-radius:8px;width:32px;height:32px;cursor:pointer;font-size:14px;flex:none}
+  .modal-x:hover{border-color:var(--danger);color:var(--danger)}
+  .modal-filters{display:flex;gap:8px;flex-wrap:wrap;padding:14px 20px;border-bottom:1px solid var(--line)}
+  .chip{background:var(--panel2);border:1px solid var(--line);color:var(--muted);padding:6px 13px;border-radius:20px;cursor:pointer;font-size:12px;font-weight:600}
+  .chip:hover{border-color:var(--accent)}
+  .chip.active{background:rgba(55,192,246,.16);border-color:var(--accent);color:var(--accent)}
+  .modal-age{display:flex;align-items:center;gap:8px;padding:10px 20px;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted)}
+  .modal-age select{width:auto;padding:5px 8px;font-size:12px}
+  .modal-body{padding:14px 20px;overflow-y:auto}
+  .dest{display:flex;align-items:center;gap:14px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;margin-bottom:10px;background:var(--panel2)}
+  .dest.best{border-color:var(--accent2);box-shadow:0 0 0 1px rgba(0,214,143,.2) inset}
+  .dest.chosen{border-color:var(--gold);box-shadow:0 0 0 1px rgba(255,209,102,.3) inset}
+  .dest .d-info{flex:1;min-width:0}
+  .dest .d-name{font-weight:600}
+  .dest .d-sys{color:var(--muted);font-size:12px}
+  .dest .d-num{text-align:right;white-space:nowrap}
+  .dest .d-price{color:var(--gold);font-weight:700}
+  .dest .d-total{color:var(--accent2);font-size:12px}
+  .pickbtn{background:linear-gradient(180deg,#37c0f6,#1a9fd4);border:none;color:#04121b;font-weight:700;padding:8px 14px;border-radius:8px;cursor:pointer;white-space:nowrap;font-size:12px;flex:none}
+  .pickbtn:hover{filter:brightness(1.08)}
+  .pickbtn.is-chosen{background:linear-gradient(180deg,#ffd166,#e0a92e)}
+</style>
+</head>
+<body>
+<div class="update-bar" id="updateBar" hidden></div>
+<header>
+  <div class="logo"><span>SC</span></div>
+  <h1>Cargo&nbsp;Manager</h1>
+  <span class="ver" id="ver"></span>
+  <div class="ship-box">
+    <span class="ship-lbl">Standard-Schiff</span>
+    <div class="combo"><input id="ship" placeholder="z.B. Caterpillar" autocomplete="off"></div>
+    <span class="ship-cap" id="shipCap"></span>
+  </div>
+  <div class="sub" id="conn">verbinde…</div>
+  <button class="gear" id="gearBtn" title="Einstellungen">⚙</button>
+</header>
+
+<nav class="tabs">
+  <button class="tab active" data-tab="log">Cargo-Log</button>
+  <button class="tab" data-tab="routes">Routen</button>
+</nav>
+
+<div class="wrap">
+ <div class="tab-panel" id="tab-log">
+  <div class="grid">
+    <!-- Eingabe -->
+    <div class="card">
+      <h2>Neuer Eintrag</h2>
+      <div class="row">
+        <div class="field">
+          <label>Datum / Zeit</label>
+          <input type="datetime-local" id="when">
+        </div>
+        <div class="field">
+          <label>Location (Kauf/Laden)</label>
+          <div class="combo"><input id="location" placeholder="tippen… z.B. Area18" autocomplete="off"></div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Material / Ware</label>
+        <div class="combo"><input id="material" placeholder="tippen… z.B. Scrap" autocomplete="off"></div>
+        <div class="hint" id="matHint">Warenliste wird geladen…</div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>Menge (Anzahl × Container)</label>
+          <div class="qty-row">
+            <input type="number" id="qtyCount" min="0" step="1" placeholder="Anzahl">
+            <span>×</span>
+            <select id="qtySize">
+              <option value="1">1</option><option value="2">2</option>
+              <option value="4" selected>4</option><option value="8">8</option>
+              <option value="16">16</option><option value="24">24</option><option value="32">32</option>
+            </select>
+            <span>SCU</span>
+            <span class="qty-eq">= <b id="qtyTotal">0</b> SCU</span>
+          </div>
+          <input type="hidden" id="units">
+          <div class="hint" id="scuHint"></div>
+        </div>
+        <div class="field">
+          <label>Einkauf / SCU (aUEC)</label>
+          <input type="number" id="buy" min="0" step="1" placeholder="0">
+        </div>
+      </div>
+      <div class="field">
+        <label>Bezahlt gesamt (aUEC)</label>
+        <input type="number" id="paid" min="0" step="1" placeholder="auto = SCU × Einkauf">
+      </div>
+      <button class="primary" id="save" disabled>Eintrag speichern</button>
+    </div>
+
+    <!-- Bester Verkauf (live) -->
+    <div class="card">
+      <h2>Bester Verkaufsplatz — live</h2>
+      <div id="best"><div class="best-empty">Material und Einheiten eingeben → beste Abnehmer erscheinen automatisch.</div></div>
+    </div>
+  </div>
+
+  <!-- Log -->
+  <div class="card">
+    <h2>Transport-Log</h2>
+    <div id="logStats" class="stats"></div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr>
+          <th>Datum</th><th>Location</th><th>Material</th>
+          <th class="num">SCU</th><th class="num">Bezahlt</th>
+          <th>Ziel</th><th>Verkauf</th><th></th>
+        </tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <div class="empty" id="emptyLog" style="display:none">Noch keine Eintraege.</div>
+  </div>
+ </div><!-- /tab-log -->
+
+ <div class="tab-panel" id="tab-routes" hidden>
+  <div class="card">
+    <h2>Profit-Routen — günstig kaufen, teuer verkaufen</h2>
+    <div class="row">
+      <div class="field">
+        <label>Ladekapazität (SCU)</label>
+        <input type="number" id="rtCargo" min="1" step="1" placeholder="z.B. 576">
+        <div class="hint" id="rtCargoHint"></div>
+      </div>
+      <div class="field">
+        <label>Budget (aUEC, optional)</label>
+        <input type="number" id="rtBudget" min="0" step="1000" placeholder="leer = kein Limit">
+      </div>
+      <div class="field">
+        <label>Start-System</label>
+        <select id="rtOrigin">
+          <option value="">Alle</option>
+          <option value="Stanton">Stanton</option>
+          <option value="Pyro">Pyro</option>
+          <option value="Nyx">Nyx</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Ziel-System</label>
+        <select id="rtDest">
+          <option value="">Alle</option>
+          <option value="Stanton">Stanton</option>
+          <option value="Pyro">Pyro</option>
+          <option value="Nyx">Nyx</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Sortierung</label>
+        <select id="rtSort">
+          <option value="profit">Gewinn</option>
+          <option value="roi">ROI %</option>
+          <option value="margin">Marge / SCU</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Daten nicht älter als</label>
+        <select id="rtAge"></select>
+      </div>
+    </div>
+    <div class="field" style="display:flex;flex-wrap:wrap;align-items:center;gap:18px">
+      <label class="chk"><input type="checkbox" id="rtAuto">Auto-Load — Bestand/Bedarf ignorieren</label>
+      <label class="chk"><input type="checkbox" id="rtRound">Rundtrip — Rückroute zum Start matchen</label>
+    </div>
+    <div id="rtResults"><div class="best-empty">Lädt Routen…</div></div>
+  </div>
+ </div><!-- /tab-routes -->
+</div>
+
+<!-- Ziel-Auswahl-Fenster (Verkaufsziel waehlen, nach System filtern) -->
+<div class="modal-overlay" id="modal" style="display:none">
+  <div class="modal">
+    <div class="modal-head">
+      <div><h3 id="mTitle">–</h3><div class="modal-sub" id="mSub"></div></div>
+      <button class="modal-x" id="mClose">✕</button>
+    </div>
+    <div class="modal-filters" id="mFilters"></div>
+    <div class="modal-age"><span>Daten nicht älter als:</span><select id="mAge"></select></div>
+    <div class="modal-body" id="mBody"></div>
+  </div>
+</div>
+
+<!-- Einstellungen -->
+<div class="modal-overlay" id="settingsModal" style="display:none">
+  <div class="modal" style="width:min(480px,100%)">
+    <div class="modal-head">
+      <div><h3>Einstellungen</h3><div class="modal-sub" id="setVer"></div></div>
+      <button class="modal-x" id="setClose">✕</button>
+    </div>
+    <div class="modal-body">
+      <label class="chk" style="margin-bottom:14px">
+        <input type="checkbox" id="optAutostart">
+        Mit Windows starten (Autostart)
+      </label>
+      <div class="hint" style="margin:-8px 0 18px">Startet das Programm automatisch beim Anmelden — nur für dich, ohne Admin-Rechte (HKCU Run-Key).</div>
+      <div class="set-row">
+        <button type="button" id="setCheckUpd" class="sc-btn-sec">Nach Updates suchen</button>
+        <span id="setUpdMsg" class="hint" style="margin:0"></span>
+      </div>
+      <div class="hint" id="setDataPath" style="margin-top:16px;word-break:break-all"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const API = "https://citizenhq.space/api/v1";
+let commodities = [];      // [{id,name}]
+let nameToId = new Map();  // lowercase name -> id
+let debounceT = null;
+
+const fmt = n => (n==null||isNaN(n)) ? "–" : Math.round(n).toLocaleString("de-DE");
+function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),1800); }
+
+// ---- Datenaktualitaet (last updated) ----
+const AGE_OPTS = [
+  {v:0,t:"Egal"},{v:3600,t:"1 Std"},{v:21600,t:"6 Std"},
+  {v:86400,t:"24 Std"},{v:259200,t:"3 Tage"},{v:604800,t:"7 Tage"}
+];
+function ageOptionsHTML(){ return AGE_OPTS.map(o=>`<option value="${o.v}">${o.t}</option>`).join(""); }
+// "vor 3 Tg" / "vor 5 Std" / "vor 12 Min" / "gerade eben"
+function agoText(unixSec){
+  if(!unixSec) return "";
+  const d = Math.floor(Date.now()/1000) - unixSec;
+  if(d < 60) return "gerade eben";
+  if(d < 3600) return `vor ${Math.floor(d/60)} Min`;
+  if(d < 86400) return `vor ${Math.floor(d/3600)} Std`;
+  return `vor ${Math.floor(d/86400)} Tg`;
+}
+// alt = aelter als 3 Tage -> zum Ausgrauen
+function isStale(unixSec){ return unixSec && (Math.floor(Date.now()/1000)-unixSec) > 259200; }
+// erfuellt Max-Alter-Filter (maxAgeSec=0 -> immer true)
+function withinAge(unixSec, maxAgeSec){
+  if(!maxAgeSec) return true;
+  if(!unixSec) return false;
+  return (Math.floor(Date.now()/1000)-unixSec) <= maxAgeSec;
+}
+
+// ---- init ----
+function nowLocal(){
+  const d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset());
+  return d.toISOString().slice(0,16);
+}
+$("#when").value = nowLocal();
+
+async function loadCommodities(){
+  try{
+    const r = await fetch(API + "/trade/commodity-list");
+    commodities = await r.json();
+    nameToId = new Map(commodities.map(c=>[c.name.toLowerCase(), c.id]));
+    $("#matHint").textContent = commodities.length + " Waren geladen — Name tippen und aus Liste waehlen.";
+    $("#conn").textContent = "citizenhq: online";
+    $("#conn").style.color = "var(--accent2)";
+  }catch(e){
+    $("#matHint").textContent = "Warenliste konnte nicht geladen werden.";
+    $("#conn").textContent = "citizenhq: offline";
+    $("#conn").style.color = "var(--danger)";
+  }
+}
+
+let stations = []; // [{value,label}]
+async function loadLocations(){
+  try{
+    // /stations = echte Handelsplaetze (Hurston, Area 18, Lorville, Lagrange-Stationen …)
+    const r = await fetch(API + "/stations");
+    const locs = await r.json();
+    stations = locs.map(l=>({
+      value: l.location||"",
+      label: `${l.system||''}${l.terminals?` · ${l.terminals} Term.`:''}`
+    })).sort((a,b)=> a.value.localeCompare(b.value));
+  }catch(e){ /* Ort bleibt freies Textfeld */ }
+}
+
+let ships = [];                 // [{value,label,cargo}]
+let shipByName = new Map();      // lowercase name -> cargo (SCU)
+async function loadShips(){
+  try{
+    const r = await fetch(API + "/ships");
+    const list = await r.json();
+    ships = list.map(s=>({
+      value: s.name||"",
+      label: `${s.cargo||0} SCU · ${s.manufacturerCode||''}`,
+      cargo: s.cargo||0
+    })).sort((a,b)=> a.value.localeCompare(b.value));
+    shipByName = new Map(list.map(s=>[(s.name||"").toLowerCase(), s.cargo||0]));
+  }catch(e){ /* Schiff bleibt freies Textfeld */ }
+}
+
+// makeCombo: eigenes, theme-konformes Autocomplete-Dropdown fuer ein Input.
+// source() -> Array {value, label?}. onpick(item) optional.
+function makeCombo(input, source, onpick){
+  const menu = document.createElement("div");
+  menu.className = "combo-menu"; menu.style.display = "none";
+  input.parentElement.appendChild(menu);
+  let items = [], active = -1;
+
+  const close = ()=>{ menu.style.display="none"; active=-1; };
+  function render(){
+    const q = input.value.trim().toLowerCase();
+    const all = source();
+    items = all.filter(it => it.value.toLowerCase().includes(q));
+    // Treffer am Wortanfang zuerst, dann alphabetisch.
+    items.sort((a,b)=>{
+      const ap = a.value.toLowerCase().startsWith(q)?0:1;
+      const bp = b.value.toLowerCase().startsWith(q)?0:1;
+      return ap-bp || a.value.localeCompare(b.value);
+    });
+    items = items.slice(0,80);
+    if(!items.length){ menu.innerHTML = `<div class="combo-empty">Keine Treffer</div>`; menu.style.display="block"; active=-1; return; }
+    menu.innerHTML = items.map((it,i)=>
+      `<div class="combo-item" data-i="${i}"><span class="ci-name">${esc(it.value)}</span>${it.label?`<span class="ci-lbl">${esc(it.label)}</span>`:''}</div>`
+    ).join("");
+    menu.style.display="block"; active=-1;
+  }
+  function mark(){
+    [...menu.querySelectorAll(".combo-item")].forEach((c,i)=> c.classList.toggle("active", i===active));
+    if(active>=0) menu.querySelectorAll(".combo-item")[active].scrollIntoView({block:"nearest"});
+  }
+  function pick(it){ if(!it) return; input.value=it.value; close(); if(onpick) onpick(it); }
+
+  input.addEventListener("input", render);
+  input.addEventListener("focus", render);
+  input.addEventListener("blur", ()=> setTimeout(close,150));
+  input.addEventListener("keydown", e=>{
+    if(menu.style.display==="none") return;
+    if(e.key==="ArrowDown"){ active=Math.min(active+1, items.length-1); mark(); e.preventDefault(); }
+    else if(e.key==="ArrowUp"){ active=Math.max(active-1, 0); mark(); e.preventDefault(); }
+    else if(e.key==="Enter" && active>=0){ pick(items[active]); e.preventDefault(); }
+    else if(e.key==="Escape"){ close(); }
+  });
+  menu.addEventListener("mousedown", e=>{ // mousedown, um vor blur zu greifen
+    const el = e.target.closest(".combo-item"); if(!el) return;
+    pick(items[+el.dataset.i]); e.preventDefault();
+  });
+}
+
+function currentCommodityId(){
+  return nameToId.get($("#material").value.trim().toLowerCase());
+}
+
+function refreshSaveState(){
+  const ok = currentCommodityId() && parseFloat($("#units").value)>0;
+  $("#save").disabled = !ok;
+}
+
+function currentShipSCU(){
+  return shipByName.get($("#ship").value.trim().toLowerCase()) || 0;
+}
+
+// updateCapacity: vergleicht Einheiten mit der Schiffskapazitaet und warnt bei Ueberladung.
+function updateCapacity(){
+  const cargo = currentShipSCU();
+  const units = parseFloat($("#units").value)||0;
+  const scuHint = $("#scuHint");
+
+  $("#shipCap").textContent = cargo>0 ? `${fmt(cargo)} SCU` : "";
+
+  scuHint.className = "hint";
+  if(cargo>0 && units>0){
+    if(units>cargo){
+      scuHint.classList.add("cap-over");
+      scuHint.innerHTML = `⚠ Überladen! ${fmt(units-cargo)} SCU zu viel (Schiff fasst ${fmt(cargo)})`;
+    } else {
+      scuHint.classList.add("cap-ok");
+      scuHint.textContent = `${fmt(units)} / ${fmt(cargo)} SCU · ${fmt(cargo-units)} frei`;
+    }
+  } else {
+    scuHint.textContent = "";
+  }
+}
+
+// fetchBuyers: nutzt den Detail-Endpoint /trade/commodity/:id, der pro Terminal
+// priceSell, scuSell (Nachfrage) UND scuSellStock (Bestand) liefert. Daraus bauen
+// wir die nach Erloes sortierte Abnehmer-Liste (qty konstant -> Sortierung nach Preis).
+async function fetchBuyers(id, qty){
+  const r = await fetch(`${API}/trade/commodity/${id}`);
+  const d = await r.json();
+  const buyers = (d.listings||[])
+    .filter(l => l.statusSell===1 && l.priceSell>0)
+    .map(l => ({
+      terminal: l.terminal, system: l.system,
+      price: l.priceSell,
+      total: l.priceSell * qty,
+      demand: l.scuSell||0,       // gemeldete Nachfrage (oft 0)
+      stock: l.scuSellStock||0,   // Bestand am Terminal (fast immer vorhanden)
+      updated: l.updatedAt||0     // Preis-Stand (unix) fuer Aktualitaets-Filter
+    }))
+    .sort((a,b)=> b.price - a.price);
+  return { commodity: (d.commodity && d.commodity.name) || "", qty, buyers };
+}
+
+// dsLine: eine Zeile mit Nachfrage (wo gemeldet) + Bestand (fast immer da).
+function dsLine(b, qty){
+  let cls, txt;
+  if(b.demand>0){ const ok=b.demand>=qty; cls=ok?'ok':'warn'; txt=`Nachfrage ${fmt(b.demand)} SCU${ok?'':' · &lt; deine Menge'}`; }
+  else { cls='na'; txt='Nachfrage k.A.'; }
+  const stock = b.stock>0 ? ` <span class="stock">· Bestand ${fmt(b.stock)} SCU</span>` : "";
+  const age = b.updated ? ` <span class="stock ${isStale(b.updated)?'stale':''}">· Stand ${agoText(b.updated)}</span>` : "";
+  return `<div class="demand ${cls}">${txt}${stock}${age}</div>`;
+}
+
+// ---- live best buyer ----
+async function updateBest(){
+  const id = currentCommodityId();
+  const units = parseFloat($("#units").value)||0;
+  const box = $("#best");
+  if(!id || units<=0){
+    box.innerHTML = `<div class="best-empty">Material und Einheiten eingeben → beste Abnehmer erscheinen automatisch.</div>`;
+    return;
+  }
+  box.innerHTML = `<div class="spin">⟳ frage beste Preise ab…</div>`;
+  try{
+    const data = await fetchBuyers(id, Math.round(units));
+    renderBest(data);
+  }catch(e){
+    box.innerHTML = `<div class="best-empty">Fehler beim Abrufen der Preise.</div>`;
+  }
+}
+
+function renderBest(data){
+  const box = $("#best");
+  const buyers = (data.buyers||[]).slice(0,4);
+  if(!buyers.length){ box.innerHTML=`<div class="best-empty">Keine Abnehmer gefunden.</div>`; return; }
+  const paid = parseFloat($("#paid").value) || (parseFloat($("#units").value)*parseFloat($("#buy").value)) || 0;
+  let html = `<div class="best-head"><span>${data.commodity} · ${fmt(data.qty)} SCU</span><b>${fmt(buyers[0].total)} aUEC</b></div>`;
+  html += buyers.map((b,i)=>`
+    <div class="buyer ${i===0?'top':''}">
+      <div><span class="name">${b.terminal}</span>${i===0?'<span class="badge">TOP</span>':''}<div class="sys">${b.system}</div>${dsLine(b, data.qty)}</div>
+      <div><div class="price">${fmt(b.price)}/SCU</div><div class="total">Σ ${fmt(b.total)}</div></div>
+    </div>`).join("");
+  if(paid>0){
+    const profit = buyers[0].total - paid;
+    const cls = profit>=0?'pos':'neg';
+    html += `<div class="profit">Gewinn vs. Einkauf (${fmt(paid)} aUEC): <span class="val ${cls}">${profit>=0?'+':''}${fmt(profit)} aUEC</span></div>`;
+  }
+  box.innerHTML = html;
+}
+
+// ---- entries ----
+let entriesCache = [];
+// Gesamt-Statistik ueber alle Log-Eintraege
+function renderStats(items){
+  const box = $("#logStats");
+  if(!items || !items.length){ box.innerHTML=""; return; }
+  const totalSCU  = items.reduce((a,e)=> a+(e.units||0), 0);
+  const totalPaid = items.reduce((a,e)=> a+(e.paid||0), 0);
+  const byMat = {};
+  items.forEach(e=>{ const k=e.commodityName||"?"; byMat[k]=(byMat[k]||0)+(e.units||0); });
+  const mats = Object.entries(byMat).sort((a,b)=> b[1]-a[1]);
+  const cap = currentShipSCU();
+
+  const tiles = [
+    `<div class="stat"><div class="stat-v">${fmt(totalSCU)}</div><div class="stat-l">Gesamt-SCU</div></div>`,
+    `<div class="stat"><div class="stat-v">${items.length}</div><div class="stat-l">Einträge</div></div>`,
+    `<div class="stat"><div class="stat-v">${mats.length}</div><div class="stat-l">Materialien</div></div>`,
+    `<div class="stat"><div class="stat-v g">${fmt(totalPaid)}</div><div class="stat-l">Bezahlt (aUEC)</div></div>`
+  ];
+  if(cap>0) tiles.push(`<div class="stat"><div class="stat-v">${fmt(Math.ceil(totalSCU/cap))}</div><div class="stat-l">Fuhren (${fmt(cap)} SCU)</div></div>`);
+
+  box.innerHTML = `<div class="stat-row">${tiles.join("")}</div>
+    <div class="mat-tags">${mats.map(([n,u])=>`<span class="mat-tag">${esc(n)} <b>${fmt(u)}</b> SCU</span>`).join("")}</div>`;
+}
+
+async function loadEntries(){
+  const items = await window.goLoadEntries();
+  entriesCache = items;
+  renderStats(items);
+  const tb = $("#rows"); tb.innerHTML="";
+  $("#emptyLog").style.display = items.length?"none":"block";
+  for(const e of items){
+    const tr = document.createElement("tr");
+    const d = e.when ? new Date(e.when).toLocaleString("de-DE",{day:"2-digit",month:"2-digit",year:"2-digit",hour:"2-digit",minute:"2-digit"}) : "–";
+    const ziel = e.sellTarget
+      ? `<span class="target">${esc(e.sellTarget)}</span><div class="t-sys">${esc(e.sellSystem||'')}</div>`
+      : `<span class="muted">–</span>`;
+    const loc = `${esc(e.location)||'–'}`;
+    const cap = currentShipSCU();  // aktuelles Standard-Schiff -> Wechsel rechnet neu
+    const over = cap>0 && e.units>cap;
+    const scu = cap>0
+      ? `${fmt(e.units)} / ${fmt(cap)}${over?` <span class="over">⚠</span>`:''}`
+      : fmt(e.units);
+    tr.innerHTML = `
+      <td>${d}</td>
+      <td>${loc}</td>
+      <td class="mat">${esc(e.commodityName)}</td>
+      <td class="num${over?' over':''}">${scu}</td>
+      <td class="num">${e.paid?fmt(e.paid):'–'}</td>
+      <td>${ziel}</td>
+      <td><button class="sellbtn" data-eid="${e.id}">Ziel wählen ▸</button></td>
+      <td><button class="del" data-del="${e.id}">✕</button></td>`;
+    tb.appendChild(tr);
+  }
+}
+function esc(s){ return (s||"").replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+// row: Ziel waehlen (Modal) oder loeschen
+$("#rows").addEventListener("click", async e=>{
+  const sell = e.target.closest(".sellbtn");
+  if(sell){
+    const entry = entriesCache.find(x=> String(x.id)===sell.dataset.eid);
+    if(entry) openSellModal(entry);
+    return;
+  }
+  const del = e.target.closest(".del");
+  if(del){
+    await window.goDeleteEntry(Number(del.dataset.del));
+    loadEntries();
+  }
+});
+
+// ---- Ziel-Auswahl-Modal ----
+let modalState = null;
+
+async function openSellModal(entry){
+  $("#modal").style.display = "flex";
+  $("#mTitle").textContent = entry.commodityName;
+  $("#mSub").textContent = `${fmt(entry.units)} SCU · frage Abnehmer ab…`;
+  $("#mFilters").innerHTML = "";
+  $("#mBody").innerHTML = `<div class="spin">⟳ lade Verkaufsplätze…</div>`;
+  try{
+    const data = await fetchBuyers(entry.commodityId, Math.round(entry.units));
+    modalState = { entry, qty:data.qty, buyers:data.buyers, system:"Alle" };
+    renderModal();
+  }catch(e){ $("#mBody").innerHTML = `<div class="best-empty">Fehler beim Laden der Abnehmer.</div>`; }
+}
+
+function renderModal(){
+  if(!modalState) return;
+  const {buyers, system, entry, qty} = modalState;
+  const paid = entry.paid || 0;
+
+  // Sub-Zeile
+  const zielInfo = entry.sellTarget ? ` · aktuelles Ziel: ${entry.sellTarget}` : "";
+  $("#mSub").textContent = `${fmt(qty)} SCU · ${buyers.length} Abnehmer${zielInfo}`;
+
+  // Aktualitaets-Filter
+  const maxAge = parseFloat($("#mAge").value)||0;
+  const fresh = buyers.filter(b=> withinAge(b.updated, maxAge));
+
+  // System-Filter Chips (Nyx/Pyro/Stanton …) — auf frische Daten bezogen
+  const systems = ["Alle", ...[...new Set(fresh.map(b=>b.system))].sort()];
+  $("#mFilters").innerHTML = systems.map(s=>{
+    const cnt = s==="Alle" ? fresh.length : fresh.filter(b=>b.system===s).length;
+    return `<div class="chip ${s===system?'active':''}" data-sys="${esc(s)}">${esc(s)} (${cnt})</div>`;
+  }).join("");
+
+  // Abnehmer-Liste (nach System gefiltert)
+  const list = system==="Alle" ? fresh : fresh.filter(b=>b.system===system);
+  if(!list.length){ $("#mBody").innerHTML = `<div class="best-empty">Keine Abnehmer im gewählten Zeitraum/System.</div>`; return; }
+  $("#mBody").innerHTML = list.map((b,i)=>{
+    const dem = dsLine(b, qty);
+    const profit = paid>0 ? b.total-paid : null;
+    const pf = profit==null ? "" : `<div class="d-total ${profit>=0?'pos':'neg'}">Gewinn ${profit>=0?'+':''}${fmt(profit)}</div>`;
+    const chosen = entry.sellTarget===b.terminal;
+    const best = (i===0 && system==="Alle");
+    return `<div class="dest ${best?'best':''} ${chosen?'chosen':''}">
+      <div class="d-info">
+        <div class="d-name">${esc(b.terminal)}${best?' <span class="badge">TOP</span>':''}${chosen?' <span class="badge" style="background:rgba(255,209,102,.2);color:var(--gold)">ZIEL</span>':''}</div>
+        <div class="d-sys">${esc(b.system)}</div>
+        ${dem}
+      </div>
+      <div class="d-num"><div class="d-price">${fmt(b.price)}/SCU</div><div class="d-total">Σ ${fmt(b.total)}</div>${pf}</div>
+      <button class="pickbtn ${chosen?'is-chosen':''}" data-term="${esc(b.terminal)}" data-sys="${esc(b.system)}">${chosen?'✓ Ziel':'Als Ziel'}</button>
+    </div>`;
+  }).join("");
+}
+
+function closeModal(){ $("#modal").style.display="none"; modalState=null; }
+$("#mClose").addEventListener("click", closeModal);
+$("#modal").addEventListener("mousedown", e=>{ if(e.target.id==="modal") closeModal(); });
+$("#mFilters").addEventListener("click", e=>{
+  const c = e.target.closest(".chip"); if(!c || !modalState) return;
+  modalState.system = c.dataset.sys; renderModal();
+});
+$("#mAge").innerHTML = ageOptionsHTML();
+$("#mAge").addEventListener("change", ()=>{ if(modalState){ modalState.system="Alle"; renderModal(); } });
+$("#mBody").addEventListener("click", async e=>{
+  const p = e.target.closest(".pickbtn"); if(!p || !modalState) return;
+  const term = p.dataset.term, sys = p.dataset.sys;
+  await window.goSetTarget(modalState.entry.id, term, sys);
+  toast("Ziel gesetzt: " + term);
+  closeModal();
+  loadEntries();
+});
+
+// save
+$("#save").addEventListener("click", async ()=>{
+  const id = currentCommodityId();
+  if(!id){ toast("Bitte Material aus der Liste waehlen"); return; }
+  const units = parseFloat($("#units").value)||0;
+  const buy = parseFloat($("#buy").value)||0;
+  let paid = parseFloat($("#paid").value);
+  if(isNaN(paid)) paid = units*buy;
+  const when = $("#when").value ? new Date($("#when").value).toISOString() : "";
+  const body = {
+    when, location:$("#location").value.trim(),
+    commodityId:id, commodityName:$("#material").value.trim(),
+    units, buyPerUnit:buy, paid,
+    ship:$("#ship").value.trim(), shipSCU:currentShipSCU()
+  };
+  try{
+    await window.goAddEntry(body);
+    toast("Eintrag gespeichert");
+    $("#material").value=""; $("#qtyCount").value=""; $("#buy").value=""; $("#paid").value="";
+    updateUnits(); // setzt units auf 0
+    $("#when").value=nowLocal();
+    refreshSaveState(); updateCapacity(); updateBest(); loadEntries();
+  }catch(err){ toast("Fehler beim Speichern"); }
+});
+
+// live triggers
+function scheduleBest(){ clearTimeout(debounceT); debounceT=setTimeout(updateBest,450); }
+["material","units"].forEach(idn=>{
+  $("#"+idn).addEventListener("input",()=>{ refreshSaveState(); scheduleBest(); });
+});
+$("#units").addEventListener("input", updateCapacity);
+$("#ship").addEventListener("input", updateCapacity);
+
+// Default-Schiff persistent speichern (bei Auswahl oder wenn Feld verlassen wird)
+async function saveDefaultShip(){
+  const name = $("#ship").value.trim();
+  const scu = currentShipSCU();
+  try{ await window.goSetShip(name, scu); }catch(_){}
+  updateCapacity();
+  loadEntries();      // Log gegen neues Schiff neu berechnen
+  syncRouteCargo();   // Routen-Ladekapazitaet ans Schiff koppeln
+}
+$("#ship").addEventListener("change", saveDefaultShip);
+
+// Routen-Ladekapazitaet = SCU des gewaehlten Schiffs (bei Wechsel neu rechnen)
+function syncRouteCargo(){
+  const c = currentShipSCU();
+  const hint = $("#rtCargoHint");
+  if(c>0){
+    $("#rtCargo").value = c;
+    if(hint) hint.textContent = "automatisch aus Schiff: " + ($("#ship").value.trim() || "—");
+    if(rtState) rtLoad();  // schon geladene Routen mit neuer Kapazitaet neu berechnen
+  } else if(hint){
+    hint.textContent = "kein Schiff gewählt — Kapazität manuell eingeben";
+  }
+}
+["buy","paid"].forEach(idn=> $("#"+idn).addEventListener("input",()=>{ /* re-render profit */ if(currentCommodityId()) scheduleBest(); }));
+
+// ---- Tab-Umschaltung ----
+document.querySelector(".tabs").addEventListener("click", e=>{
+  const t = e.target.closest(".tab"); if(!t) return;
+  document.querySelectorAll(".tab").forEach(x=> x.classList.toggle("active", x===t));
+  const name = t.dataset.tab;
+  document.querySelectorAll(".tab-panel").forEach(p=> p.hidden = (p.id!=="tab-"+name));
+  if(name==="routes"){
+    syncRouteCargo();       // Kapazitaet vom Schiff uebernehmen
+    if(!rtState) rtLoad();
+  }
+});
+
+// ---- Routen-Tab (Profit-Routen-Rechner) ----
+let rtState = null, rtDebounce = null;
+function rtSchedule(){ clearTimeout(rtDebounce); rtDebounce=setTimeout(rtLoad,450); }
+
+async function rtLoad(){
+  const p = new URLSearchParams();
+  const cargo = parseFloat($("#rtCargo").value)||0;  if(cargo>0)  p.set("cargo", Math.round(cargo));
+  const budget = parseFloat($("#rtBudget").value)||0; if(budget>0) p.set("budget", Math.round(budget));
+  const origin = $("#rtOrigin").value;                if(origin)   p.set("origin", origin);
+  const dest = $("#rtDest").value;                    if(dest)     p.set("dest", dest);
+  if($("#rtAuto").checked)  p.set("autoload","1");   // Bestand/Bedarf ignorieren
+  if($("#rtRound").checked) p.set("roundtrip","1");  // Rueckroute zum Start matchen
+  $("#rtResults").innerHTML = `<div class="spin">⟳ berechne Routen…</div>`;
+  try{
+    const r = await fetch(`${API}/trade/trader-routes?`+p.toString());
+    rtState = await r.json();
+    rtRender();
+  }catch(e){ $("#rtResults").innerHTML = `<div class="best-empty">Fehler beim Laden der Routen.</div>`; }
+}
+
+// Kauf-Empfehlung (units, gedeckelt aufs Schiff) fuer die Tabelle
+function rtBuyCell(r){
+  const cargo = parseFloat($("#rtCargo").value)||0;
+  const part = cargo>0 && r.units<cargo ? `<div class="t-sys">von ${fmt(cargo)}</div>` : "";
+  return `<b>${fmt(r.units)}</b>${part}`;
+}
+
+// eine Tabellenzeile fuer eine (Teil-)Route
+function rtRow(r, dir){
+  return `<tr class="${dir==='Rück'?'rt-ret':''}">
+    ${dir!==null?`<td class="rt-dir">${dir}</td>`:''}
+    <td class="mat">${esc(r.commodity)}<div class="t-sys ${isStale(r.updatedAt)?'stale':''}">Stand ${agoText(r.updatedAt)||'?'}</div></td>
+    <td>${esc(r.from)}<div class="t-sys">${esc(r.fromSystem)}</div></td>
+    <td>${esc(r.to)}<div class="t-sys">${esc(r.toSystem)}</div></td>
+    <td class="num">${fmt(r.buy)}</td>
+    <td class="num">${fmt(r.sell)}</td>
+    <td class="num">${fmt(r.marginPerScu)}</td>
+    <td class="num">${rtBuyCell(r)}</td>
+    <td class="num">${fmt(r.investment)}</td>
+    <td class="num pos">${fmt(r.profit)}</td>
+    <td class="num">${r.roi!=null?r.roi.toFixed(1)+' %':'–'}</td>
+  </tr>`;
+}
+
+// ein Bein einer Rundreise
+function rtLeg(x, dir, isRet){
+  const cargo = parseFloat($("#rtCargo").value)||0;
+  const full = cargo>0 && x.units>=cargo;
+  const buy = `<div class="leg-buy">Kaufen: <b>${fmt(x.units)} SCU</b>${cargo>0?(full?` <span class="buy-full">volle Ladung</span>`:` <span class="buy-part">von ${fmt(cargo)}</span>`):''}</div>`;
+  return `<div class="leg ${isRet?'ret':''}">
+    <div class="leg-dir">${dir}</div>
+    <div>
+      <div class="leg-title">${esc(x.commodity)}</div>
+      <div class="leg-route">${esc(x.from)} <span class="t-sys">(${esc(x.fromSystem)})</span><span class="arrow">→</span>${esc(x.to)} <span class="t-sys">(${esc(x.toSystem)})</span></div>
+    </div>
+    <div class="leg-nums">
+      ${buy}
+      <div class="leg-price">Kauf ${fmt(x.buy)} → Verk. ${fmt(x.sell)} /SCU</div>
+      <div class="leg-profit">+${fmt(x.profit)} aUEC · ${x.roi!=null?x.roi.toFixed(1)+'%':'–'}</div>
+      <div class="leg-age ${isStale(x.updatedAt)?'stale':''}">Stand ${agoText(x.updatedAt)||'?'}</div>
+    </div>
+  </div>`;
+}
+
+// eine komplette Rundreise als Karte
+function rtLoopCard(r){
+  return `<div class="loop">
+    <div class="loop-head">
+      <span class="lh-sys">Rundreise · ${esc(r.fromSystem)} ⇄ ${esc(r.toSystem)}</span>
+      <span class="loop-total">Gesamt +${fmt(r.totalProfit)} aUEC</span>
+    </div>
+    ${rtLeg(r, "HIN", false)}
+    ${rtLeg(r.ret, "RÜCK", true)}
+  </div>`;
+}
+
+function rtRender(){
+  if(!rtState) return;
+  const sort = $("#rtSort").value;
+  const round = $("#rtRound").checked;
+  const maxAge = parseFloat($("#rtAge").value)||0;
+
+  if(round){
+    // nur echte Rundreisen (mit Rueckroute) + beide Beine aktuell genug
+    const loops = rtState.filter(r=> r.ret && withinAge(Math.min(r.updatedAt||0, r.ret.updatedAt||0), maxAge)).sort((a,b)=>
+      sort==="roi"    ? (b.roi+ (b.ret?b.ret.roi:0)) - (a.roi+(a.ret?a.ret.roi:0)) :
+      sort==="margin" ? b.marginPerScu-a.marginPerScu :
+                        (b.totalProfit||0)-(a.totalProfit||0)
+    );
+    if(!loops.length){ $("#rtResults").innerHTML = `<div class="best-empty">Keine vollständigen Rundreisen im gewählten Zeitraum — Filter lockern oder Rundtrip aus.</div>`; return; }
+    $("#rtResults").innerHTML = loops.map(rtLoopCard).join("");
+    return;
+  }
+
+  // Einweg: kompakte Tabelle
+  const list = rtState.filter(r=> withinAge(r.updatedAt, maxAge)).sort((a,b)=>
+    sort==="roi"    ? b.roi-a.roi :
+    sort==="margin" ? b.marginPerScu-a.marginPerScu :
+                      b.profit-a.profit
+  );
+  if(!list.length){ $("#rtResults").innerHTML = `<div class="best-empty">Keine Routen im gewählten Zeitraum — Filter lockern.</div>`; return; }
+  const rows = list.map(r=> rtRow(r, null)).join("");
+  $("#rtResults").innerHTML = `<div style="overflow-x:auto"><table>
+    <thead><tr>
+      <th>Ware</th><th>Von</th><th>Nach</th>
+      <th class="num">Kauf</th><th class="num">Verkauf</th><th class="num">Marge/SCU</th>
+      <th class="num">Kaufen&nbsp;(SCU)</th><th class="num">Investment</th><th class="num">Gewinn</th><th class="num">ROI</th>
+    </tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+$("#rtAge").innerHTML = ageOptionsHTML();
+["rtCargo","rtBudget"].forEach(id=> $("#"+id).addEventListener("input", rtSchedule));
+["rtOrigin","rtDest","rtAuto","rtRound"].forEach(id=> $("#"+id).addEventListener("change", rtLoad));
+["rtSort","rtAge"].forEach(id=> $("#"+id).addEventListener("change", rtRender));
+
+// ---- Menge: Anzahl x Container -> SCU (live berechnet, beim Speichern genutzt) ----
+function updateUnits(){
+  const c = parseFloat($("#qtyCount").value)||0;
+  const s = parseFloat($("#qtySize").value)||0;
+  const t = c*s;
+  $("#qtyTotal").textContent = fmt(t);
+  $("#units").value = t;                          // verstecktes Feld = berechnete SCU
+  $("#units").dispatchEvent(new Event("input"));  // triggert Save-State + Kapazitaet + Live-Verkauf
+}
+$("#qtyCount").addEventListener("input", updateUnits);
+$("#qtySize").addEventListener("change", updateUnits);
+
+// eigene Dropdowns aktivieren
+makeCombo($("#material"), ()=> commodities.map(c=>({value:c.name})), ()=>{ refreshSaveState(); scheduleBest(); });
+makeCombo($("#location"), ()=> stations);
+makeCombo($("#ship"), ()=> ships, ()=> saveDefaultShip());
+
+// ---- Einstellungen (Zahnrad) ----
+async function openSettings(){
+  $("#settingsModal").style.display = "flex";
+  try{ const v = await window.goVersion(); $("#setVer").textContent = "Version "+v; }catch(_){}
+  try{ const on = await window.goGetAutostart(); $("#optAutostart").checked = !!on; }catch(_){}
+  if(window.goDataPath){ try{ $("#setDataPath").textContent = "Daten: "+(await window.goDataPath()); }catch(_){} }
+  $("#setUpdMsg").textContent = "";
+}
+$("#gearBtn").addEventListener("click", openSettings);
+$("#setClose").addEventListener("click", ()=> $("#settingsModal").style.display="none");
+$("#settingsModal").addEventListener("mousedown", e=>{ if(e.target.id==="settingsModal") $("#settingsModal").style.display="none"; });
+$("#optAutostart").addEventListener("change", async e=>{
+  try{
+    const on = await window.goSetAutostart(e.target.checked);
+    e.target.checked = !!on;
+    toast(on ? "Autostart aktiviert" : "Autostart deaktiviert");
+  }catch(err){ toast("Autostart-Fehler"); e.target.checked=!e.target.checked; }
+});
+$("#setCheckUpd").addEventListener("click", async ()=>{
+  const msg=$("#setUpdMsg"); msg.textContent="⟳ prüfe…";
+  try{
+    const u = await window.goCheckUpdate();
+    if(u && u.available){ msg.innerHTML = `Update auf <b style="color:var(--accent)">v${u.latest}</b> verfügbar`; checkForUpdate(); }
+    else { msg.textContent = "Du hast die neueste Version ("+(u?u.current:"?")+")."; }
+  }catch(e){ msg.textContent = "Prüfung fehlgeschlagen."; }
+});
+
+// ---- Auto-Update ----
+async function checkForUpdate(){
+  if(!window.goVersion) return;
+  try{ const v = await window.goVersion(); $("#ver").textContent = "v"+v; }catch(_){}
+  if(!window.goCheckUpdate) return;
+  try{
+    const u = await window.goCheckUpdate();
+    if(u && u.available){
+      const bar = $("#updateBar");
+      bar.innerHTML = `Update verfügbar: <b>v${u.latest}</b> (installiert v${u.current}) <button id="doUpdate">Jetzt aktualisieren</button>`;
+      bar.hidden = false;
+      $("#doUpdate").addEventListener("click", async ()=>{
+        bar.innerHTML = "⟳ Update wird heruntergeladen… das Programm startet gleich automatisch neu.";
+        try{ await window.goApplyUpdate(u.downloadUrl); }
+        catch(e){ bar.innerHTML = "Update fehlgeschlagen: "+e+" — bitte manuell von GitHub laden."; }
+      });
+    }
+  }catch(_){}
+}
+
+// go
+loadCommodities();
+loadLocations();
+loadShips().then(loadDefaultShip);
+loadEntries();
+checkForUpdate();
+if(window.goDataPath){ window.goDataPath().then(p=>{ $("#conn").title = "Daten: "+p; }); }
+
+// gespeichertes Standard-Schiff laden und ins Feld setzen
+async function loadDefaultShip(){
+  try{
+    const s = await window.goGetSettings();
+    if(s && s.defaultShip){ $("#ship").value = s.defaultShip; }
+  }catch(_){}
+  updateCapacity();
+  loadEntries();     // Log mit geladener Schiffskapazitaet rendern
+  syncRouteCargo();  // Routen-Kapazitaet vorbelegen
+}
+</script>
+</body>
+</html>

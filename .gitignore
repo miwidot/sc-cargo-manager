@@ -1,0 +1,9 @@
+# gebaute Binaries + Update-Reste
+*.exe
+*.exe.old
+*.exe.new
+
+# Screenshots / temporaere Bilder (Icon ist .ico und bleibt versioniert)
+*.png
+*.jpg
+*.jpeg
