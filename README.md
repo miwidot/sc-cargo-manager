@@ -40,7 +40,8 @@ Menschenlesbar, einfach zu sichern.
 ## Neue Version veröffentlichen (für Maintainer)
 
 1. `version` in `update.go` erhöhen (z.B. `1.0.1`).
-2. `build.bat` ausführen → `sc-cargo-manager.exe`.
+2. `build.bat` ausführen → baut **und signiert** `sc-cargo-manager.exe`
+   (Code-Signing via `sign.bat`, Zertifikat aus dem Windows-User-Store, Certum-Timestamp).
 3. Tag + Release mit der Exe:
    ```
    git commit -am "v1.0.1"

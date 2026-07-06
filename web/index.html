@@ -265,6 +265,7 @@
 
 <nav class="tabs">
   <button class="tab active" data-tab="log">Cargo-Log</button>
+  <button class="tab" data-tab="buyer">Best Buyer</button>
   <button class="tab" data-tab="routes">Routen</button>
 </nav>
 
@@ -342,6 +343,32 @@
     <div class="empty" id="emptyLog" style="display:none">Noch keine Eintraege.</div>
   </div>
  </div><!-- /tab-log -->
+
+ <div class="tab-panel" id="tab-buyer" hidden>
+  <div class="card">
+    <h2>Best Buyer — bester Verkaufsplatz nachschlagen</h2>
+    <div class="row">
+      <div class="field">
+        <label>Ware / Commodity</label>
+        <div class="combo"><input id="bbMaterial" placeholder="tippen… z.B. Scrap" autocomplete="off"></div>
+      </div>
+      <div class="field">
+        <label>Menge (SCU)</label>
+        <input type="number" id="bbUnits" min="1" step="1" placeholder="1">
+      </div>
+      <div class="field">
+        <label>Sortierung</label>
+        <select id="bbSort">
+          <option value="price">Preis</option>
+          <option value="demand">Nachfrage</option>
+          <option value="stock">Bestand</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-filters" id="bbFilters" style="padding:0;border:none"></div>
+    <div id="bbResults"><div class="best-empty">Ware wählen und Menge eingeben → beste Abnehmer erscheinen.</div></div>
+  </div>
+ </div><!-- /tab-buyer -->
 
  <div class="tab-panel" id="tab-routes" hidden>
   <div class="card">
@@ -1021,10 +1048,60 @@ function updateUnits(){
 $("#qtyCount").addEventListener("input", updateUnits);
 $("#qtySize").addEventListener("change", updateUnits);
 
+// ---- Best-Buyer-Tab (eigenstaendiges Nachschlagen) ----
+let bbState = null, bbDebounce = null;
+function bbSchedule(){ clearTimeout(bbDebounce); bbDebounce=setTimeout(bbUpdate,400); }
+async function bbUpdate(){
+  const id = nameToId.get($("#bbMaterial").value.trim().toLowerCase());
+  const units = parseFloat($("#bbUnits").value)||0;
+  const box = $("#bbResults");
+  if(!id || units<=0){
+    $("#bbFilters").innerHTML=""; bbState=null;
+    box.innerHTML=`<div class="best-empty">Ware wählen und Menge eingeben → beste Abnehmer erscheinen.</div>`;
+    return;
+  }
+  box.innerHTML=`<div class="spin">⟳ lade Abnehmer…</div>`;
+  try{
+    const data = await fetchBuyers(id, Math.round(units));
+    bbState = { qty:data.qty, buyers:data.buyers, system:"Alle" };
+    bbRender();
+  }catch(e){ box.innerHTML=`<div class="best-empty">Fehler beim Laden.</div>`; }
+}
+function bbRender(){
+  if(!bbState) return;
+  const {buyers, system, qty} = bbState;
+  const sort = $("#bbSort").value;
+  const systems = ["Alle", ...[...new Set(buyers.map(b=>b.system))].sort()];
+  $("#bbFilters").innerHTML = systems.map(s=>{
+    const cnt = s==="Alle" ? buyers.length : buyers.filter(b=>b.system===s).length;
+    return `<div class="chip ${s===system?'active':''}" data-sys="${esc(s)}">${esc(s)} (${cnt})</div>`;
+  }).join("");
+  let list = system==="Alle" ? buyers.slice() : buyers.filter(b=>b.system===system);
+  list.sort((a,b)=>{
+    if(sort==="demand") return b.demand-a.demand || b.price-a.price;
+    if(sort==="stock")  return b.stock-a.stock   || b.price-a.price;
+    return b.price-a.price;
+  });
+  if(!list.length){ $("#bbResults").innerHTML=`<div class="best-empty">Keine Abnehmer in diesem System.</div>`; return; }
+  $("#bbResults").innerHTML = list.map((b,i)=>`
+    <div class="dest ${i===0?'best':''}">
+      <div class="d-info"><div class="d-name">${esc(b.terminal)}${i===0?' <span class="badge">TOP</span>':''}</div><div class="d-sys">${esc(b.system)}</div>${dsLine(b, qty)}</div>
+      <div class="d-num"><div class="d-price">${fmt(b.price)}/SCU</div><div class="d-total">Σ ${fmt(b.total)}</div></div>
+    </div>`).join("");
+}
+$("#bbMaterial").addEventListener("input", bbSchedule);
+$("#bbUnits").addEventListener("input", bbSchedule);
+$("#bbSort").addEventListener("change", bbRender);
+$("#bbFilters").addEventListener("click", e=>{
+  const c = e.target.closest(".chip"); if(!c || !bbState) return;
+  bbState.system = c.dataset.sys; bbRender();
+});
+
 // eigene Dropdowns aktivieren
 makeCombo($("#material"), ()=> commodities.map(c=>({value:c.name})), ()=>{ refreshSaveState(); scheduleBest(); });
 makeCombo($("#location"), ()=> stations);
 makeCombo($("#ship"), ()=> ships, ()=> saveDefaultShip());
+makeCombo($("#bbMaterial"), ()=> commodities.map(c=>({value:c.name})), ()=> bbUpdate());
 
 // ---- Einstellungen (Zahnrad) ----
 async function openSettings(){
