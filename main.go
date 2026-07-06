@@ -262,6 +262,14 @@ func main() {
 	}
 	defer w.Destroy()
 
+	// --- Rahmenloses Fenster + eigene Titelleiste ---
+	hwnd := hwndOf(w.Window())
+	makeFrameless(hwnd)
+	must(w.Bind("goWinDrag", func() error { w.Dispatch(func() { winDrag(hwnd) }); return nil }))
+	must(w.Bind("goWinMin", func() error { winMinimize(hwnd); return nil }))
+	must(w.Bind("goWinMax", func() error { winToggleMax(hwnd); return nil }))
+	must(w.Bind("goWinClose", func() error { winClose(hwnd); return nil }))
+
 	// --- Go-Funktionen fuer JavaScript verfuegbar machen (kein HTTP) ---
 
 	// goLoadEntries() -> Entry[]
