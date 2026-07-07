@@ -97,6 +97,7 @@
   .stale{color:var(--warn)}
   .leg-buy{font-size:13px;color:var(--txt);margin-bottom:2px}
   .leg-buy b{color:var(--accent)}
+  .leg-boxes{font-size:11px;color:var(--muted);margin-bottom:3px}
   .buy-full{color:var(--accent2);font-size:11px;font-weight:700}
   .buy-part{color:var(--warn);font-size:11px}
   select:focus{border-color:var(--accent)}
@@ -1234,11 +1235,31 @@ async function rtLoad(){
   }catch(e){ $("#rtResults").innerHTML = `<div class="best-empty">Fehler beim Laden der Routen.</div>`; }
 }
 
-// Kauf-Empfehlung (units, gedeckelt aufs Schiff) fuer die Tabelle
+// Box-Aufteilung "42× 16 + 1× 2" aus r.containers
+function containersText(r){
+  if(!r.containers || !r.containers.length) return "";
+  return r.containers.map(c=> `${fmt(c.count)}× ${c.size}`).join(" + ");
+}
+// Optionale Warnung aus containerSizes (kleinste/groesste Box)
+function containerWarn(r){
+  if(!r.containerSizes) return "";
+  const sizes = String(r.containerSizes).split(",").map(Number).filter(n=>n>0);
+  if(!sizes.length) return "";
+  const min = Math.min(...sizes), max = Math.max(...sizes);
+  if(min >= 8) return `nur Boxen ab ${min} SCU`;
+  if(max <= 4) return `nur Kleinboxen (≤${max})`;
+  return "";
+}
+
+// Kauf-Empfehlung (units schon auf kaufbare Box-Kombi gerundet) fuer die Tabelle
 function rtBuyCell(r){
   const cargo = parseFloat($("#rtCargo").value)||0;
-  const part = cargo>0 && r.units<cargo ? `<div class="t-sys">von ${fmt(cargo)}</div>` : "";
-  return `<b>${fmt(r.units)}</b>${part}`;
+  const part = cargo>0 && r.units<cargo ? ` <span class="t-sys">von ${fmt(cargo)}</span>` : "";
+  const boxes = containersText(r);
+  const boxLine = boxes ? `<div class="t-sys">${boxes}</div>` : "";
+  const warn = containerWarn(r);
+  const warnLine = warn ? `<div class="t-sys stale">⚠ ${warn}</div>` : "";
+  return `<b>${fmt(r.units)}</b>${part}${boxLine}${warnLine}`;
 }
 
 // eine Tabellenzeile fuer eine (Teil-)Route
@@ -1262,7 +1283,10 @@ function rtRow(r, dir){
 function rtLeg(x, dir, isRet){
   const cargo = parseFloat($("#rtCargo").value)||0;
   const full = cargo>0 && x.units>=cargo;
-  const buy = `<div class="leg-buy">Kaufen: <b>${fmt(x.units)} SCU</b>${cargo>0?(full?` <span class="buy-full">volle Ladung</span>`:` <span class="buy-part">von ${fmt(cargo)}</span>`):''}</div>`;
+  const boxes = containersText(x);
+  const warn = containerWarn(x);
+  const buy = `<div class="leg-buy">Kaufen: <b>${fmt(x.units)} SCU</b>${cargo>0?(full?` <span class="buy-full">volle Ladung</span>`:` <span class="buy-part">von ${fmt(cargo)}</span>`):''}</div>`
+    + (boxes?`<div class="leg-boxes">${boxes}${warn?` · <span class="stale">⚠ ${warn}</span>`:''}</div>`:'');
   return `<div class="leg ${isRet?'ret':''}">
     <div class="leg-dir">${dir}</div>
     <div>
