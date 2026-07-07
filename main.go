@@ -50,13 +50,19 @@ type Entry struct {
 	Location      string  `json:"location"`      // Ort / Station wo gekauft/geladen
 	CommodityID   int     `json:"commodityId"`   // citizenhq commodity id (fuer best-buyer)
 	CommodityName string  `json:"commodityName"` // Anzeigename
-	Units         float64 `json:"units"`         // Menge in SCU
+	Units         float64 `json:"units"`         // Menge in SCU (= qtyCount * qtySize)
+	QtyCount      float64 `json:"qtyCount"`      // Anzahl Container (fuer Rechnungs-Tooltip)
+	QtySize       float64 `json:"qtySize"`       // Container-Groesse in SCU
 	BuyPerUnit    float64 `json:"buyPerUnit"`    // Einkaufspreis pro SCU (aUEC)
 	Paid          float64 `json:"paid"`          // gesamt bezahlt (aUEC)
 	SellTarget    string  `json:"sellTarget"`    // gewaehltes Verkaufsziel (Terminal)
 	SellSystem    string  `json:"sellSystem"`    // System des Verkaufsziels
 	Ship          string  `json:"ship"`          // Transportschiff (Name)
 	ShipSCU       float64 `json:"shipSCU"`       // Ladekapazitaet des Schiffs (SCU)
+	Sold          bool    `json:"sold"`          // verkauft?
+	SoldTotal     float64 `json:"soldTotal"`     // tatsaechlicher Erloes (aUEC)
+	SoldWhen      string  `json:"soldWhen"`      // Verkaufszeit (RFC3339)
+	AlertPrice    float64 `json:"alertPrice"`    // Alarm ausloesen wenn Bestpreis-Erloes >= diesem Wert (0 = aus)
 }
 
 // store haelt alle Eintraege im Speicher und persistiert sie als JSON-Datei.
@@ -134,6 +140,46 @@ func (s *store) setTarget(id int64, target, system string) (Entry, error) {
 		if s.items[i].ID == id {
 			s.items[i].SellTarget = target
 			s.items[i].SellSystem = system
+			return s.items[i], s.saveLocked()
+		}
+	}
+	return Entry{}, errors.New("nicht gefunden")
+}
+
+func (s *store) markSold(id int64, total float64, when string) (Entry, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.items {
+		if s.items[i].ID == id {
+			s.items[i].Sold = true
+			s.items[i].SoldTotal = total
+			s.items[i].SoldWhen = when
+			return s.items[i], s.saveLocked()
+		}
+	}
+	return Entry{}, errors.New("nicht gefunden")
+}
+
+func (s *store) setAlert(id int64, price float64) (Entry, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.items {
+		if s.items[i].ID == id {
+			s.items[i].AlertPrice = price
+			return s.items[i], s.saveLocked()
+		}
+	}
+	return Entry{}, errors.New("nicht gefunden")
+}
+
+func (s *store) markUnsold(id int64) (Entry, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.items {
+		if s.items[i].ID == id {
+			s.items[i].Sold = false
+			s.items[i].SoldTotal = 0
+			s.items[i].SoldWhen = ""
 			return s.items[i], s.saveLocked()
 		}
 	}
@@ -271,6 +317,8 @@ func main() {
 	must(w.Bind("goWinMax", func() error { winToggleMax(hwnd); return nil }))
 	must(w.Bind("goWinClose", func() error { winClose(hwnd); return nil }))
 	must(w.Bind("goOpenExternal", func(url string) error { openExternal(url); return nil }))
+	must(w.Bind("goFlash", func() error { flashWindow(hwnd); return nil }))
+	must(w.Bind("goBeep", func() error { messageBeep(); return nil }))
 
 	// --- Go-Funktionen fuer JavaScript verfuegbar machen (kein HTTP) ---
 
@@ -305,6 +353,21 @@ func main() {
 	// goSetTarget(id, terminal, system) -> Entry (gewaehltes Verkaufsziel speichern)
 	must(w.Bind("goSetTarget", func(id int64, target, system string) (Entry, error) {
 		return st.setTarget(id, target, system)
+	}))
+
+	// goMarkSold(id, total, when) -> Entry (als verkauft markieren mit echtem Erloes)
+	must(w.Bind("goMarkSold", func(id int64, total float64, when string) (Entry, error) {
+		return st.markSold(id, total, when)
+	}))
+
+	// goMarkUnsold(id) -> Entry (Verkauf zuruecknehmen)
+	must(w.Bind("goMarkUnsold", func(id int64) (Entry, error) {
+		return st.markUnsold(id)
+	}))
+
+	// goSetAlert(id, price) -> Entry (Alarm-Preis setzen, 0 = aus)
+	must(w.Bind("goSetAlert", func(id int64, price float64) (Entry, error) {
+		return st.setAlert(id, price)
 	}))
 
 	// goDataPath() -> string (Anzeige wo die Datei liegt)

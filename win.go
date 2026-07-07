@@ -26,7 +26,27 @@ var (
 	pIsZoomed         = user32.NewProc("IsZoomed")
 	pPostMessage      = user32.NewProc("PostMessageW")
 	pCallWindowProc   = user32.NewProc("CallWindowProcW")
+	pFlashWindowEx    = user32.NewProc("FlashWindowEx")
+	pMessageBeep      = user32.NewProc("MessageBeep")
 )
+
+type flashwinfo struct {
+	cbSize    uint32
+	hwnd      uintptr
+	dwFlags   uint32
+	uCount    uint32
+	dwTimeout uint32
+}
+
+// flashWindow laesst den Taskbar-Button blinken bis das Fenster fokussiert wird.
+func flashWindow(hwnd uintptr) {
+	fw := flashwinfo{hwnd: hwnd, dwFlags: 0x0000000E} // FLASHW_TRAY | FLASHW_TIMERNOFG
+	fw.cbSize = uint32(unsafe.Sizeof(fw))
+	pFlashWindowEx.Call(uintptr(unsafe.Pointer(&fw)))
+}
+
+// messageBeep spielt den Standard-Benachrichtigungston.
+func messageBeep() { pMessageBeep.Call(0x00000040) } // MB_ICONASTERISK
 
 const (
 	gwlStyle        = ^uintptr(15) // GWL_STYLE = -16

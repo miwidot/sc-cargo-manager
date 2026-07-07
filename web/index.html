@@ -156,6 +156,19 @@
   .pos{color:var(--accent2)} .neg{color:var(--danger)}
   .spin{color:var(--muted);font-size:13px}
 
+  /* Split-Load */
+  .split-box{border:1px solid var(--accent);border-radius:12px;padding:14px 16px;margin-bottom:16px;background:rgba(55,192,246,.06)}
+  .split-head{font-size:14px;margin-bottom:10px;color:var(--txt)}
+  .split-head b{font-size:15px}
+  .split-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:7px 0;border-top:1px solid #131c27;font-size:13px}
+  .split-row:first-of-type{border-top:none}
+  .split-gain{margin-top:8px;color:var(--accent2);font-weight:700;font-size:13px}
+
+  /* Markt-Board */
+  .spark{vertical-align:middle}
+  .chg-up{color:var(--accent2)}
+  .chg-down{color:var(--danger)}
+
   /* eigenes Dropdown (ersetzt natives datalist -> volle Theme-Kontrolle) */
   .combo{position:relative}
   .combo-menu{
@@ -182,12 +195,24 @@
   td{padding:9px 10px;border-bottom:1px solid #131c27;font-size:13px;vertical-align:middle}
   tbody tr:hover{background:#0d151f}
   .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  td.has-calc{cursor:help}
+  td.has-calc:hover{color:var(--accent)}
   th.num{white-space:nowrap}
   .mat{font-weight:600}
   .del{background:none;border:1px solid var(--line);color:var(--muted);border-radius:6px;padding:4px 9px;cursor:pointer;font-size:12px}
   .del:hover{border-color:var(--danger);color:var(--danger)}
   .sellbtn{background:none;border:1px solid var(--line);color:var(--accent);border-radius:6px;padding:4px 9px;cursor:pointer;font-size:12px}
   .sellbtn:hover{border-color:var(--accent)}
+  .soldbtn{background:none;border:1px solid var(--accent2);color:var(--accent2);border-radius:6px;padding:4px 9px;cursor:pointer;font-size:12px;white-space:nowrap}
+  .soldbtn:hover{background:rgba(0,214,143,.12)}
+  .unsoldbtn{background:none;border:1px solid var(--line);color:var(--muted);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:12px}
+  .unsoldbtn:hover{border-color:var(--accent);color:var(--accent)}
+  .alarmbtn{background:none;border:1px solid var(--line);color:var(--muted);border-radius:6px;padding:4px 7px;cursor:pointer;line-height:0;vertical-align:middle}
+  .alarmbtn:hover{border-color:var(--warn);color:var(--warn)}
+  .alarmbtn.on{color:var(--warn);border-color:var(--warn);background:rgba(255,176,32,.12)}
+  .sold-badge{color:var(--accent2);font-weight:600;font-size:12px;white-space:nowrap}
+  tr.sold td{opacity:.62}
+  tr.sold td.mat{opacity:.85}
   .empty{color:var(--muted);text-align:center;padding:30px}
   .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--accent2);color:var(--accent2);padding:10px 18px;border-radius:8px;opacity:0;transition:opacity .25s;pointer-events:none;z-index:200}
   .toast.show{opacity:1}
@@ -267,6 +292,7 @@
   <button class="tab active" data-tab="log">Cargo-Log</button>
   <button class="tab" data-tab="buyer">Best Buyer</button>
   <button class="tab" data-tab="routes">Routen</button>
+  <button class="tab" data-tab="market">Markt</button>
 </nav>
 
 <div class="wrap">
@@ -365,6 +391,9 @@
         </select>
       </div>
     </div>
+    <div class="field" style="margin-top:4px">
+      <label class="chk"><input type="checkbox" id="bbSplit">Ladung optimal auf mehrere Terminals aufteilen (wegen begrenzter Nachfrage)</label>
+    </div>
     <div class="modal-filters" id="bbFilters" style="padding:0;border:none;margin:10px 0 16px"></div>
     <div id="bbResults"><div class="best-empty">Ware wählen und Menge eingeben → beste Abnehmer erscheinen.</div></div>
   </div>
@@ -421,6 +450,33 @@
     <div id="rtResults"><div class="best-empty">Lädt Routen…</div></div>
   </div>
  </div><!-- /tab-routes -->
+
+ <div class="tab-panel" id="tab-market" hidden>
+  <div class="card">
+    <h2>Markt — Bewegungen &amp; Trends</h2>
+    <div class="row">
+      <div class="field">
+        <label>Sortierung</label>
+        <select id="mktSort">
+          <option value="gain">Gewinner (24h)</option>
+          <option value="loss">Verlierer (24h)</option>
+          <option value="gain1">Gewinner (1h)</option>
+          <option value="price">Preis</option>
+          <option value="volume">Volumen (SCU)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Filter</label>
+        <select id="mktLegal">
+          <option value="all">Alle</option>
+          <option value="legal">Nur legal</option>
+          <option value="illegal">Nur illegal</option>
+        </select>
+      </div>
+    </div>
+    <div id="mktResults"><div class="best-empty">Lädt Marktdaten…</div></div>
+  </div>
+ </div><!-- /tab-market -->
 </div>
 
 <!-- Ziel-Auswahl-Fenster (Verkaufsziel waehlen, nach System filtern) -->
@@ -454,6 +510,48 @@
         <span id="setUpdMsg" class="hint" style="margin:0"></span>
       </div>
       <div class="hint" id="setDataPath" style="margin-top:16px;word-break:break-all"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Verkauft-Dialog -->
+<div class="modal-overlay" id="sellModal" style="display:none">
+  <div class="modal" style="width:min(440px,100%)">
+    <div class="modal-head">
+      <div><h3 id="sellTitle">Als verkauft markieren</h3><div class="modal-sub" id="sellSub"></div></div>
+      <button class="modal-x" id="sellClose">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Tatsächlicher Erlös (aUEC)</label>
+        <input type="number" id="sellTotal" min="0" step="1" placeholder="0">
+        <div class="hint" id="sellHint">Vorbefüllt mit dem aktuellen Bestpreis — anpassen falls du woanders/anders verkauft hast.</div>
+      </div>
+      <div class="set-row" style="justify-content:flex-end;gap:10px">
+        <button type="button" id="sellCancel" class="sc-btn-sec">Abbrechen</button>
+        <button type="button" id="sellConfirm" class="sc-btn">Verkauft speichern</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Preis-Alarm-Dialog -->
+<div class="modal-overlay" id="alertModal" style="display:none">
+  <div class="modal" style="width:min(420px,100%)">
+    <div class="modal-head">
+      <div><h3>Preis-Alarm</h3><div class="modal-sub" id="alertSub"></div></div>
+      <button class="modal-x" id="alertClose">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Alarm wenn bester Erlös ≥ (aUEC)</label>
+        <input type="number" id="alertPrice" min="0" step="1000">
+        <div class="hint" id="alertHint"></div>
+      </div>
+      <div class="set-row" style="justify-content:flex-end;gap:10px">
+        <button type="button" id="alertClear" class="sc-btn-sec">Alarm aus</button>
+        <button type="button" id="alertSave" class="sc-btn">Alarm setzen</button>
+      </div>
     </div>
   </div>
 </div>
@@ -712,23 +810,42 @@ let entriesCache = [];
 function renderStats(items){
   const box = $("#logStats");
   if(!items || !items.length){ box.innerHTML=""; return; }
-  const totalSCU  = items.reduce((a,e)=> a+(e.units||0), 0);
-  const totalPaid = items.reduce((a,e)=> a+(e.paid||0), 0);
+  const open = items.filter(e=> !e.sold);
+  const sold = items.filter(e=> e.sold);
+  const openSCU = open.reduce((a,e)=> a+(e.units||0), 0);
+  const realized = sold.reduce((a,e)=> a+((e.soldTotal||0)-(e.paid||0)), 0);
+  const soldRevenue = sold.reduce((a,e)=> a+(e.soldTotal||0), 0);
   const byMat = {};
-  items.forEach(e=>{ const k=e.commodityName||"?"; byMat[k]=(byMat[k]||0)+(e.units||0); });
+  open.forEach(e=>{ const k=e.commodityName||"?"; byMat[k]=(byMat[k]||0)+(e.units||0); });
   const mats = Object.entries(byMat).sort((a,b)=> b[1]-a[1]);
   const cap = currentShipSCU();
+  const rc = realized>=0?'':'neg';
 
   const tiles = [
-    `<div class="stat"><div class="stat-v">${fmt(totalSCU)}</div><div class="stat-l">Gesamt-SCU</div></div>`,
-    `<div class="stat"><div class="stat-v">${items.length}</div><div class="stat-l">Einträge</div></div>`,
-    `<div class="stat"><div class="stat-v">${mats.length}</div><div class="stat-l">Materialien</div></div>`,
-    `<div class="stat"><div class="stat-v g">${fmt(totalPaid)}</div><div class="stat-l">Bezahlt (aUEC)</div></div>`
+    `<div class="stat"><div class="stat-v">${fmt(openSCU)}</div><div class="stat-l">Offen (SCU)</div></div>`,
+    `<div class="stat"><div class="stat-v" id="statPortfolio">…</div><div class="stat-l">Offen ≈ Wert</div></div>`,
+    `<div class="stat"><div class="stat-v ${realized>=0?'g':''}" style="${realized<0?'color:var(--danger)':''}">${realized>=0?'+':''}${fmt(realized)}</div><div class="stat-l">Realisierter Gewinn</div></div>`,
+    `<div class="stat"><div class="stat-v">${fmt(soldRevenue)}</div><div class="stat-l">Erlös verkauft</div></div>`,
+    `<div class="stat"><div class="stat-v">${sold.length}/${items.length}</div><div class="stat-l">verkauft / gesamt</div></div>`
   ];
-  if(cap>0) tiles.push(`<div class="stat"><div class="stat-v">${fmt(Math.ceil(totalSCU/cap))}</div><div class="stat-l">Fuhren (${fmt(cap)} SCU)</div></div>`);
+  if(cap>0 && openSCU>0) tiles.push(`<div class="stat"><div class="stat-v">${fmt(Math.ceil(openSCU/cap))}</div><div class="stat-l">Fuhren offen (${fmt(cap)})</div></div>`);
 
   box.innerHTML = `<div class="stat-row">${tiles.join("")}</div>
     <div class="mat-tags">${mats.map(([n,u])=>`<span class="mat-tag">${esc(n)} <b>${fmt(u)}</b> SCU</span>`).join("")}</div>`;
+  updatePortfolio(open);
+}
+
+// Geschaetzter Wert der offenen Ladung zum aktuellen Bestpreis (live).
+async function updatePortfolio(open){
+  const el = $("#statPortfolio"); if(!el) return;
+  if(!open.length){ el.textContent="–"; return; }
+  const byId = {};
+  open.forEach(e=>{ if(e.commodityId) byId[e.commodityId]=(byId[e.commodityId]||0)+(e.units||0); });
+  let est = 0;
+  for(const [id,qty] of Object.entries(byId)){
+    try{ const d=await fetchBuyers(Number(id), Math.round(qty)); if(d.buyers[0]) est += d.buyers[0].total; }catch(_){}
+  }
+  el.textContent = fmt(est);
 }
 
 async function loadEntries(){
@@ -749,26 +866,57 @@ async function loadEntries(){
     const scu = cap>0
       ? `${fmt(e.units)} / ${fmt(cap)}${over?` <span class="over">⚠</span>`:''}`
       : fmt(e.units);
+    const hasCalc = e.qtyCount>0 && e.qtySize>0;
+    const calc = hasCalc
+      ? `Rechnung: ${fmt(e.qtyCount)} × ${fmt(e.qtySize)} SCU = ${fmt(e.units)} SCU${cap>0?`  ·  Schiff: ${fmt(cap)} SCU`:''}`
+      : `${fmt(e.units)} SCU${cap>0?`  ·  Schiff: ${fmt(cap)} SCU`:''}`;
+    let verkauf;
+    if(e.sold){
+      const profit = (e.soldTotal||0)-(e.paid||0);
+      verkauf = `<span class="sold-badge">✓ ${fmt(e.soldTotal)} <span class="${profit>=0?'pos':'neg'}">(${profit>=0?'+':''}${fmt(profit)})</span></span> <button class="unsoldbtn" data-eid="${e.id}" title="Verkauf zurücknehmen">↩</button>`;
+    } else {
+      const bell = `<button class="alarmbtn ${e.alertPrice>0?'on':''}" data-eid="${e.id}" title="${e.alertPrice>0?'Alarm bei ≥ '+fmt(e.alertPrice)+' aUEC':'Preis-Alarm setzen'}"><svg width="12" height="12" viewBox="0 0 16 16"><path d="M8 1.6a3.4 3.4 0 0 0-3.4 3.4v2.5l-1 2.4h8.8l-1-2.4V5A3.4 3.4 0 0 0 8 1.6z M6.4 12a1.6 1.6 0 0 0 3.2 0" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg></button>`;
+      verkauf = `<button class="sellbtn" data-eid="${e.id}">Ziel ▸</button> <button class="soldbtn" data-eid="${e.id}">✓ Verkauft</button> ${bell}`;
+    }
+    if(e.sold) tr.className = "sold";
     tr.innerHTML = `
       <td>${d}</td>
       <td>${loc}</td>
       <td class="mat">${esc(e.commodityName)}</td>
-      <td class="num${over?' over':''}">${scu}</td>
+      <td class="num${over?' over':''}${hasCalc?' has-calc':''}" title="${esc(calc)}">${scu}</td>
       <td class="num">${e.paid?fmt(e.paid):'–'}</td>
       <td>${ziel}</td>
-      <td><button class="sellbtn" data-eid="${e.id}">Ziel wählen ▸</button></td>
+      <td>${verkauf}</td>
       <td><button class="del" data-del="${e.id}">✕</button></td>`;
     tb.appendChild(tr);
   }
 }
 function esc(s){ return (s||"").replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
-// row: Ziel waehlen (Modal) oder loeschen
+// row: Ziel waehlen / verkauft / zuruecknehmen / loeschen
 $("#rows").addEventListener("click", async e=>{
   const sell = e.target.closest(".sellbtn");
   if(sell){
     const entry = entriesCache.find(x=> String(x.id)===sell.dataset.eid);
     if(entry) openSellModal(entry);
+    return;
+  }
+  const soldB = e.target.closest(".soldbtn");
+  if(soldB){
+    const entry = entriesCache.find(x=> String(x.id)===soldB.dataset.eid);
+    if(entry) openSellDialog(entry);
+    return;
+  }
+  const unsold = e.target.closest(".unsoldbtn");
+  if(unsold){
+    await window.goMarkUnsold(Number(unsold.dataset.eid));
+    loadEntries();
+    return;
+  }
+  const alarm = e.target.closest(".alarmbtn");
+  if(alarm){
+    const entry = entriesCache.find(x=> String(x.id)===alarm.dataset.eid);
+    if(entry) openAlertDialog(entry);
     return;
   }
   const del = e.target.closest(".del");
@@ -777,6 +925,97 @@ $("#rows").addEventListener("click", async e=>{
     loadEntries();
   }
 });
+
+// ---- Verkauft-Dialog (echten Erloes erfassen) ----
+let sellEntry = null;
+async function openSellDialog(entry){
+  sellEntry = entry;
+  $("#sellModal").style.display = "flex";
+  $("#sellSub").textContent = `${esc(entry.commodityName)} · ${fmt(entry.units)} SCU`;
+  $("#sellTotal").value = "";
+  $("#sellHint").textContent = "⟳ hole aktuellen Bestpreis…";
+  try{
+    const d = await fetchBuyers(entry.commodityId, Math.round(entry.units));
+    let est = d.buyers[0] ? d.buyers[0].total : 0;
+    // wenn ein Ziel gesetzt ist, dessen Preis bevorzugen
+    if(entry.sellTarget){ const t = d.buyers.find(b=> b.terminal===entry.sellTarget); if(t) est = t.total; }
+    $("#sellTotal").value = Math.round(est);
+    const profit = est-(entry.paid||0);
+    $("#sellHint").innerHTML = `Bestpreis${entry.sellTarget?` bei ${esc(entry.sellTarget)}`:''}: ${fmt(est)} aUEC${entry.paid?` · Gewinn <span class="${profit>=0?'pos':'neg'}">${profit>=0?'+':''}${fmt(profit)}</span>`:''} — anpassen falls anders verkauft.`;
+  }catch(_){ $("#sellHint").textContent = "Konnte Bestpreis nicht laden — Erlös manuell eintragen."; }
+  $("#sellTotal").focus();
+}
+function closeSellDialog(){ $("#sellModal").style.display="none"; sellEntry=null; }
+$("#sellClose").addEventListener("click", closeSellDialog);
+$("#sellCancel").addEventListener("click", closeSellDialog);
+$("#sellModal").addEventListener("mousedown", e=>{ if(e.target.id==="sellModal") closeSellDialog(); });
+$("#sellConfirm").addEventListener("click", async ()=>{
+  if(!sellEntry) return;
+  const total = parseFloat($("#sellTotal").value)||0;
+  await window.goMarkSold(sellEntry.id, total, new Date().toISOString());
+  toast("Als verkauft gespeichert");
+  closeSellDialog();
+  loadEntries();
+});
+$("#sellTotal").addEventListener("keydown", e=>{ if(e.key==="Enter") $("#sellConfirm").click(); });
+
+// ---- Preis-Alarm-Dialog ----
+let alertEntry = null;
+async function openAlertDialog(entry){
+  alertEntry = entry;
+  $("#alertModal").style.display = "flex";
+  $("#alertSub").textContent = `${esc(entry.commodityName)} · ${fmt(entry.units)} SCU`;
+  $("#alertPrice").value = entry.alertPrice>0 ? Math.round(entry.alertPrice) : "";
+  $("#alertHint").textContent = "⟳ hole aktuellen Bestpreis…";
+  try{
+    const d = await fetchBuyers(entry.commodityId, Math.round(entry.units));
+    const top = d.buyers[0] ? d.buyers[0].total : 0;
+    if(!entry.alertPrice) $("#alertPrice").value = Math.round(top);
+    $("#alertHint").textContent = `Aktueller Bestpreis: ${fmt(top)} aUEC. Der Wächter prüft im Hintergrund und meldet sich (Ton + Taskbar-Blinken), wenn erreicht.`;
+  }catch(_){ $("#alertHint").textContent = "Bestpreis nicht ladbar — Zielwert manuell setzen."; }
+  $("#alertPrice").focus();
+}
+function closeAlertDialog(){ $("#alertModal").style.display="none"; alertEntry=null; }
+$("#alertClose").addEventListener("click", closeAlertDialog);
+$("#alertModal").addEventListener("mousedown", e=>{ if(e.target.id==="alertModal") closeAlertDialog(); });
+$("#alertSave").addEventListener("click", async ()=>{
+  if(!alertEntry) return;
+  const p = parseFloat($("#alertPrice").value)||0;
+  await window.goSetAlert(alertEntry.id, p);
+  toast(p>0 ? "Alarm gesetzt" : "Alarm aus");
+  closeAlertDialog(); loadEntries();
+});
+$("#alertClear").addEventListener("click", async ()=>{
+  if(!alertEntry) return;
+  await window.goSetAlert(alertEntry.id, 0);
+  toast("Alarm aus"); closeAlertDialog(); loadEntries();
+});
+
+// ---- Hintergrund-Wächter: Preis-Alarme pruefen ----
+let alertChecking = false;
+async function checkAlerts(){
+  if(alertChecking) return;
+  const watch = (entriesCache||[]).filter(e=> !e.sold && e.alertPrice>0);
+  if(!watch.length) return;
+  alertChecking = true;
+  let fired = false;
+  for(const e of watch){
+    try{
+      const d = await fetchBuyers(e.commodityId, Math.round(e.units));
+      const top = d.buyers[0];
+      if(top && top.total >= e.alertPrice){
+        toast(`Alarm — ${e.commodityName}: ${fmt(top.total)} aUEC bei ${top.terminal}`);
+        try{ window.goBeep && window.goBeep(); window.goFlash && window.goFlash(); }catch(_){}
+        await window.goSetAlert(e.id, 0); // einmalig
+        fired = true;
+      }
+    }catch(_){}
+  }
+  alertChecking = false;
+  if(fired) loadEntries();
+}
+setInterval(checkAlerts, 180000);          // alle 3 Minuten
+setTimeout(checkAlerts, 20000);            // kurz nach Start einmal
 
 // ---- Ziel-Auswahl-Modal ----
 let modalState = null;
@@ -865,7 +1104,8 @@ $("#save").addEventListener("click", async ()=>{
   const body = {
     when, location:$("#location").value.trim(),
     commodityId:id, commodityName:$("#material").value.trim(),
-    units, buyPerUnit:buy, paid,
+    units, qtyCount:parseFloat($("#qtyCount").value)||0, qtySize:parseFloat($("#qtySize").value)||0,
+    buyPerUnit:buy, paid,
     ship:$("#ship").value.trim(), shipSCU:currentShipSCU()
   };
   try{
@@ -921,7 +1161,58 @@ document.querySelector(".tabs").addEventListener("click", e=>{
     syncRouteCargo();       // Kapazitaet vom Schiff uebernehmen
     if(!rtState) rtLoad();
   }
+  if(name==="market" && !mktState) mktLoad();
 });
+
+// ---- Markt-Movers-Board ----
+let mktState = null;
+function sparkline(arr){
+  if(!arr || arr.length<2) return "";
+  const w=84,h=24,pad=3;
+  const min=Math.min(...arr), max=Math.max(...arr), rng=(max-min)||1;
+  const pts=arr.map((v,i)=>{
+    const x=pad + i*(w-2*pad)/(arr.length-1);
+    const y=h-pad - (v-min)/rng*(h-2*pad);
+    return x.toFixed(1)+","+y.toFixed(1);
+  }).join(" ");
+  const col = arr[arr.length-1] >= arr[0] ? "#00d68f" : "#ff5470";
+  return `<svg class="spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.5" stroke-linejoin="round"/></svg>`;
+}
+async function mktLoad(){
+  $("#mktResults").innerHTML=`<div class="spin">⟳ lade Marktdaten…</div>`;
+  try{ const r=await fetch(API+"/trade/market"); mktState=await r.json(); mktRender(); }
+  catch(e){ $("#mktResults").innerHTML=`<div class="best-empty">Fehler beim Laden der Marktdaten.</div>`; }
+}
+function mktRender(){
+  if(!mktState) return;
+  const legal=$("#mktLegal").value, sort=$("#mktSort").value;
+  let list=mktState.filter(m=> (m.price||0)>0 && (legal==="all" || (legal==="legal"&&!m.illegal) || (legal==="illegal"&&m.illegal)));
+  list.sort((a,b)=>
+    sort==="loss"   ? (a.change24h||0)-(b.change24h||0) :
+    sort==="gain1"  ? (b.change1h||0)-(a.change1h||0) :
+    sort==="price"  ? (b.price||0)-(a.price||0) :
+    sort==="volume" ? (b.volumeScu||0)-(a.volumeScu||0) :
+                      (b.change24h||0)-(a.change24h||0)
+  );
+  list=list.slice(0,60);
+  if(!list.length){ $("#mktResults").innerHTML=`<div class="best-empty">Keine Daten.</div>`; return; }
+  const rows=list.map(m=>{
+    const c24=m.change24h||0, c1=m.change1h||0;
+    return `<tr>
+      <td class="mat">${esc(m.name)}${m.illegal?' <span class="badge" style="background:rgba(255,84,112,.2);color:var(--danger)">illegal</span>':''}</td>
+      <td>${sparkline(m.spark)}</td>
+      <td class="num">${fmt(m.price)}</td>
+      <td class="num ${c24>=0?'chg-up':'chg-down'}">${c24>=0?'+':''}${c24.toFixed(1)} %</td>
+      <td class="num ${c1>=0?'chg-up':'chg-down'}">${c1>=0?'+':''}${c1.toFixed(1)} %</td>
+      <td class="num">${m.volumeScu?fmt(m.volumeScu):'–'}</td>
+      <td class="num">${m.terminals||'–'}</td>
+    </tr>`;
+  }).join("");
+  $("#mktResults").innerHTML=`<div style="overflow-x:auto"><table>
+    <thead><tr><th>Ware</th><th>Trend</th><th class="num">Preis</th><th class="num">Δ 24h</th><th class="num">Δ 1h</th><th class="num">Vol.</th><th class="num">Term.</th></tr></thead>
+    <tbody>${rows}</tbody></table></div>`;
+}
+["mktSort","mktLegal"].forEach(id=> $("#"+id).addEventListener("change", mktRender));
 
 // ---- Routen-Tab (Profit-Routen-Rechner) ----
 let rtState = null, rtDebounce = null;
@@ -1085,15 +1376,51 @@ function bbRender(){
     return b.price-a.price;
   });
   if(!list.length){ $("#bbResults").innerHTML=`<div class="best-empty">Keine Abnehmer in diesem System.</div>`; return; }
-  $("#bbResults").innerHTML = list.map((b,i)=>`
+  const splitHtml = $("#bbSplit").checked ? renderSplit(list, qty) : "";
+  $("#bbResults").innerHTML = splitHtml + list.map((b,i)=>`
     <div class="dest ${i===0?'best':''}">
       <div class="d-info"><div class="d-name">${esc(b.terminal)}${i===0?' <span class="badge">TOP</span>':''}</div><div class="d-sys">${esc(b.system)}</div>${dsLine(b, qty)}</div>
       <div class="d-num"><div class="d-price">${fmt(b.price)}/SCU</div><div class="d-total">Σ ${fmt(b.total)}</div></div>
     </div>`).join("");
 }
+
+// Split-Load: Ladung greedy nach Preis auf Terminals verteilen, gedeckelt durch
+// gemeldete Nachfrage (demand>0). Unbekannte Nachfrage (0) = nimmt den Rest.
+function splitLoad(buyers, qty){
+  const sorted = buyers.slice().sort((a,b)=> b.price - a.price);
+  let remaining = Math.round(qty);
+  const plan = [];
+  for(const b of sorted){
+    if(remaining<=0) break;
+    const cap = b.demand>0 ? b.demand : remaining;
+    const take = Math.min(remaining, cap);
+    if(take<=0) continue;
+    plan.push({ ...b, take, revenue: take*b.price, capped: b.demand>0 });
+    remaining -= take;
+  }
+  return { plan, total: plan.reduce((s,p)=>s+p.revenue,0), remaining };
+}
+function renderSplit(list, qty){
+  const s = splitLoad(list, qty);
+  const single = list.length ? Math.round(qty)*list.slice().sort((a,b)=>b.price-a.price)[0].price : 0;
+  const gain = s.total - single;
+  const rows = s.plan.map(p=>`
+    <div class="split-row">
+      <div><b>${fmt(p.take)} SCU</b> → ${esc(p.terminal)} <span class="t-sys">(${esc(p.system)})</span>${p.capped?` <span class="stock">· Nachfrage ${fmt(p.demand)}</span>`:` <span class="stock">· Nachfrage k.A.</span>`}</div>
+      <div class="num pos">${fmt(p.revenue)}</div>
+    </div>`).join("");
+  const restNote = s.remaining>0 ? `<div class="hint" style="margin-top:6px">⚠ ${fmt(s.remaining)} SCU nicht unterbringbar (gemeldete Nachfrage reicht nicht).</div>` : "";
+  const gainNote = gain>0 ? `<div class="split-gain">+${fmt(gain)} aUEC mehr als alles am Top-Terminal</div>` : `<div class="hint" style="margin-top:4px">Aufteilung bringt hier keinen Vorteil (Top-Terminal deckt deine Menge).</div>`;
+  return `<div class="split-box">
+    <div class="split-head">Optimale Aufteilung · ${fmt(Math.round(qty))} SCU · <b class="pos">Σ ${fmt(s.total)} aUEC</b></div>
+    ${rows}${restNote}${gainNote}
+  </div>`;
+}
+
 $("#bbMaterial").addEventListener("input", bbSchedule);
 $("#bbUnits").addEventListener("input", bbSchedule);
 $("#bbSort").addEventListener("change", bbRender);
+$("#bbSplit").addEventListener("change", bbRender);
 $("#bbFilters").addEventListener("click", e=>{
   const c = e.target.closest(".chip"); if(!c || !bbState) return;
   bbState.system = c.dataset.sys; bbRender();
