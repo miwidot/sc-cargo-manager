@@ -160,6 +160,23 @@ func (s *store) markSold(id int64, total float64, when string) (Entry, error) {
 	return Entry{}, errors.New("nicht gefunden")
 }
 
+// mergeEntry addiert Menge + Bezahlt auf einen bestehenden Eintrag (gleiche Ladung
+// an gleicher Location nachgeladen). Box-Aufschluesselung wird geleert (jetzt gemischt).
+func (s *store) mergeEntry(id int64, addUnits, addPaid float64) (Entry, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.items {
+		if s.items[i].ID == id {
+			s.items[i].Units += addUnits
+			s.items[i].Paid += addPaid
+			s.items[i].QtyCount = 0
+			s.items[i].QtySize = 0
+			return s.items[i], s.saveLocked()
+		}
+	}
+	return Entry{}, errors.New("nicht gefunden")
+}
+
 func (s *store) setLocation(id int64, location string) (Entry, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -385,6 +402,11 @@ func main() {
 	// goSetLocation(id, location) -> Entry (Standort der Ladung aendern)
 	must(w.Bind("goSetLocation", func(id int64, location string) (Entry, error) {
 		return st.setLocation(id, location)
+	}))
+
+	// goMergeEntry(id, addUnits, addPaid) -> Entry (Ladung zusammenfuehren)
+	must(w.Bind("goMergeEntry", func(id int64, addUnits, addPaid float64) (Entry, error) {
+		return st.mergeEntry(id, addUnits, addPaid)
 	}))
 
 	// goDataPath() -> string (Anzeige wo die Datei liegt)

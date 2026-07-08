@@ -370,7 +370,7 @@
       <table>
         <thead><tr>
           <th>Datum</th><th>Location</th><th>Material</th>
-          <th class="num">SCU</th><th class="num">Bezahlt</th>
+          <th class="num">SCU</th><th class="num">≈ Erlös jetzt</th>
           <th>Ziel</th><th>Verkauf</th><th></th>
         </tr></thead>
         <tbody id="rows"></tbody>
@@ -583,6 +583,23 @@
       <div class="set-row" style="justify-content:flex-end;gap:10px">
         <button type="button" id="locCancel" class="sc-btn-sec">Abbrechen</button>
         <button type="button" id="locSave" class="sc-btn">Speichern</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Zusammenfuehren-Dialog -->
+<div class="modal-overlay" id="mergeModal" style="display:none">
+  <div class="modal" style="width:min(470px,100%)">
+    <div class="modal-head">
+      <div><h3>Ladung zusammenführen?</h3><div class="modal-sub" id="mergeSub"></div></div>
+      <button class="modal-x" id="mergeClose">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="mergeInfo" style="font-size:13px;color:var(--txt);margin-bottom:16px;line-height:1.5"></div>
+      <div class="set-row" style="justify-content:flex-end;gap:10px">
+        <button type="button" id="mergeNew" class="sc-btn-sec">Als neuer Eintrag</button>
+        <button type="button" id="mergeDo" class="sc-btn">Zusammenführen</button>
       </div>
     </div>
   </div>
@@ -869,15 +886,28 @@ function renderStats(items){
 
 // Geschaetzter Wert der offenen Ladung zum aktuellen Bestpreis (live).
 async function updatePortfolio(open){
-  const el = $("#statPortfolio"); if(!el) return;
-  if(!open.length){ el.textContent="–"; return; }
+  const el = $("#statPortfolio");
+  if(!open.length){ if(el) el.textContent="–"; return; }
   const byId = {};
   open.forEach(e=>{ if(e.commodityId) byId[e.commodityId]=(byId[e.commodityId]||0)+(e.units||0); });
-  let est = 0;
+  const priceById = {};
   for(const [id,qty] of Object.entries(byId)){
-    try{ const d=await fetchBuyers(Number(id), Math.round(qty)); if(d.buyers[0]) est += d.buyers[0].total; }catch(_){}
+    try{ const d=await fetchBuyers(Number(id), Math.round(qty)); if(d.buyers[0]) priceById[id]=d.buyers[0].price; }catch(_){}
   }
-  el.textContent = fmt(est);
+  // Gesamt-Kachel
+  let est = 0;
+  open.forEach(e=>{ const p=priceById[e.commodityId]; if(p) est += (e.units||0)*p; });
+  if(el) el.textContent = fmt(est);
+  // pro Zeile: ≈ Erloes jetzt (Menge x Bestpreis/SCU), Farbe = Gewinn vs. Einkauf
+  open.forEach(e=>{
+    const cell = document.getElementById("est-"+e.id); if(!cell) return;
+    const p = priceById[e.commodityId];
+    if(!p){ cell.textContent="–"; return; }
+    const val = (e.units||0)*p;
+    const profit = (e.paid||0)>0 ? val-e.paid : null;
+    cell.innerHTML = `${fmt(val)}${profit!=null?` <span class="t-sys ${profit>=0?'pos':'neg'}">${profit>=0?'+':''}${fmt(profit)}</span>`:''}`;
+    cell.title = `${fmt(p)}/SCU × ${fmt(e.units)} SCU`;
+  });
 }
 
 async function loadEntries(){
@@ -916,7 +946,7 @@ async function loadEntries(){
       <td>${loc}</td>
       <td class="mat">${esc(e.commodityName)}</td>
       <td class="num${over?' over':''}${hasCalc?' has-calc':''}" title="${esc(calc)}">${scu}</td>
-      <td class="num">${e.paid?fmt(e.paid):'–'}</td>
+      <td class="num" id="est-${e.id}">${e.sold?'–':'…'}</td>
       <td>${ziel}</td>
       <td>${verkauf}</td>
       <td><button class="del" data-del="${e.id}">✕</button></td>`;
@@ -1130,6 +1160,24 @@ $("#mBody").addEventListener("click", async e=>{
   loadEntries();
 });
 
+// Formular nach dem Speichern zuruecksetzen
+function resetEntryForm(){
+  $("#material").value=""; $("#qtyCount").value=""; $("#buy").value=""; $("#paid").value="";
+  updateUnits(); // setzt units auf 0
+  $("#when").value=nowLocal();
+  refreshSaveState(); updateCapacity(); updateBest(); loadEntries();
+}
+// offener (nicht verkaufter) Eintrag mit gleicher Ware + gleicher Location
+function findMergeCandidate(commodityId, location){
+  const loc = (location||"").trim().toLowerCase();
+  if(!loc) return null;
+  return (entriesCache||[]).find(e=> !e.sold && e.commodityId===commodityId && (e.location||"").trim().toLowerCase()===loc) || null;
+}
+async function doSaveNew(body){
+  try{ await window.goAddEntry(body); toast("Eintrag gespeichert"); resetEntryForm(); }
+  catch(err){ toast("Fehler beim Speichern"); }
+}
+
 // save
 $("#save").addEventListener("click", async ()=>{
   const id = currentCommodityId();
@@ -1146,14 +1194,34 @@ $("#save").addEventListener("click", async ()=>{
     buyPerUnit:buy, paid,
     ship:$("#ship").value.trim(), shipSCU:currentShipSCU()
   };
-  try{
-    await window.goAddEntry(body);
-    toast("Eintrag gespeichert");
-    $("#material").value=""; $("#qtyCount").value=""; $("#buy").value=""; $("#paid").value="";
-    updateUnits(); // setzt units auf 0
-    $("#when").value=nowLocal();
-    refreshSaveState(); updateCapacity(); updateBest(); loadEntries();
-  }catch(err){ toast("Fehler beim Speichern"); }
+  const cand = findMergeCandidate(id, body.location);
+  if(cand){ openMergeDialog(cand, body); return; } // gleiche Ware + Location -> fragen
+  doSaveNew(body);
+});
+
+// ---- Zusammenfuehren-Dialog ----
+let mergeCand = null, mergeBody = null;
+function openMergeDialog(cand, body){
+  mergeCand = cand; mergeBody = body;
+  $("#mergeModal").style.display = "flex";
+  $("#mergeSub").textContent = `${esc(body.commodityName)} · ${esc(body.location)}`;
+  const sumU = (cand.units||0) + body.units;
+  const sumP = (cand.paid||0) + body.paid;
+  $("#mergeInfo").innerHTML = `Bei <b>${esc(body.location)}</b> liegen schon <b>${fmt(cand.units)} SCU ${esc(body.commodityName)}</b>.<br>
+    Zusammenführen ergibt <b class="pos">${fmt(sumU)} SCU</b>${sumP>0?` · bezahlt gesamt ${fmt(sumP)} aUEC`:''}.`;
+}
+function closeMergeDialog(){ $("#mergeModal").style.display="none"; mergeCand=null; mergeBody=null; }
+$("#mergeClose").addEventListener("click", closeMergeDialog);
+$("#mergeModal").addEventListener("mousedown", e=>{ if(e.target.id==="mergeModal") closeMergeDialog(); });
+$("#mergeDo").addEventListener("click", async ()=>{
+  if(!mergeCand || !mergeBody) return;
+  try{ await window.goMergeEntry(mergeCand.id, mergeBody.units, mergeBody.paid); toast("Zusammengeführt"); }
+  catch(_){ toast("Fehler beim Zusammenführen"); }
+  closeMergeDialog(); resetEntryForm();
+});
+$("#mergeNew").addEventListener("click", ()=>{
+  const b = mergeBody; closeMergeDialog();
+  if(b) doSaveNew(b);
 });
 
 // live triggers
