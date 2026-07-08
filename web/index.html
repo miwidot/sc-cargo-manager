@@ -75,7 +75,11 @@
   select{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:9px 11px;border-radius:8px;font-size:14px;outline:none;font-family:inherit;cursor:pointer}
   .chk{margin:0;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--txt);text-transform:none;letter-spacing:normal}
   .set-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-  .sc-btn-sec{background:none;border:1px solid var(--line);color:var(--txt);padding:8px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600}
+  .sc-btn{background:linear-gradient(180deg,#37c0f6,#1a9fd4);border:none;color:#04121b;padding:9px 18px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;letter-spacing:.02em}
+  .sc-btn:hover{filter:brightness(1.08)}
+  .sc-btn:active{filter:brightness(.95)}
+  .sc-btn-sec{background:none;border:1px solid var(--line);color:var(--txt);padding:9px 16px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600}
+  .sc-btn-sec:hover{border-color:var(--accent);color:var(--accent)}
   .sc-btn-sec:hover{border-color:var(--accent);color:var(--accent)}
   .chk input{width:auto}
   /* Rundreise-Karten (roundtrip) — gut lesbar statt dichter Tabelle */
@@ -214,6 +218,9 @@
   .alarmbtn:hover{border-color:var(--warn);color:var(--warn)}
   .alarmbtn.on{color:var(--warn);border-color:var(--warn);background:rgba(255,176,32,.12)}
   .sold-badge{color:var(--accent2);font-weight:600;font-size:12px;white-space:nowrap}
+  .locbtn{background:none;border:none;color:var(--muted);cursor:pointer;padding:2px 3px;line-height:0;vertical-align:middle;opacity:.5}
+  tr:hover .locbtn{opacity:1}
+  .locbtn:hover{color:var(--accent)}
   tr.sold td{opacity:.62}
   tr.sold td.mat{opacity:.85}
   .empty{color:var(--muted);text-align:center;padding:30px}
@@ -447,9 +454,9 @@
       </div>
     </div>
     <div class="field" style="display:flex;flex-wrap:wrap;align-items:center;gap:18px">
-      <label class="chk"><input type="checkbox" id="rtAuto">Auto-Load — Bestand/Bedarf ignorieren</label>
+      <label class="chk"><input type="checkbox" id="rtAuto">Volle Ladung annehmen — Bestand/Bedarf ignorieren</label>
       <label class="chk"><input type="checkbox" id="rtRound">Rundtrip — Rückroute zum Start matchen</label>
-      <label class="chk"><input type="checkbox" id="rtFreight">Nur Fracht-Aufzug (Auto-Load) — Handlade-Terminals ausblenden</label>
+      <label class="chk"><input type="checkbox" id="rtFreight">Nur mit Auto-Load (Fracht-Aufzug) — Handlade-Terminals ausblenden</label>
     </div>
     <div id="rtResults"><div class="best-empty">Lädt Routen…</div></div>
   </div>
@@ -555,6 +562,27 @@
       <div class="set-row" style="justify-content:flex-end;gap:10px">
         <button type="button" id="alertClear" class="sc-btn-sec">Alarm aus</button>
         <button type="button" id="alertSave" class="sc-btn">Alarm setzen</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Standort-aendern-Dialog -->
+<div class="modal-overlay" id="locModal" style="display:none">
+  <div class="modal" style="width:min(440px,100%)">
+    <div class="modal-head">
+      <div><h3>Standort ändern</h3><div class="modal-sub" id="locSub"></div></div>
+      <button class="modal-x" id="locClose">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Aktueller Standort der Ladung</label>
+        <div class="combo"><input id="editLoc" placeholder="tippen… z.B. Area18" autocomplete="off"></div>
+        <div class="hint">Wo liegt die Ladung gerade? (z.B. Station wo du sie geparkt hast, weil das Terminal nicht abnahm)</div>
+      </div>
+      <div class="set-row" style="justify-content:flex-end;gap:10px">
+        <button type="button" id="locCancel" class="sc-btn-sec">Abbrechen</button>
+        <button type="button" id="locSave" class="sc-btn">Speichern</button>
       </div>
     </div>
   </div>
@@ -864,7 +892,7 @@ async function loadEntries(){
     const ziel = e.sellTarget
       ? `<span class="target">${esc(e.sellTarget)}</span><div class="t-sys">${esc(e.sellSystem||'')}</div>`
       : `<span class="muted">–</span>`;
-    const loc = `${esc(e.location)||'–'}`;
+    const loc = `<span class="loc-txt">${esc(e.location)||'–'}</span> <button class="locbtn" data-eid="${e.id}" title="Standort ändern"><svg width="11" height="11" viewBox="0 0 16 16"><path d="M11.3 2.2l2.5 2.5L5.2 13.3l-3 .5.5-3z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg></button>`;
     const cap = currentShipSCU();  // aktuelles Standard-Schiff -> Wechsel rechnet neu
     const over = cap>0 && e.units>cap;
     const scu = cap>0
@@ -921,6 +949,12 @@ $("#rows").addEventListener("click", async e=>{
   if(alarm){
     const entry = entriesCache.find(x=> String(x.id)===alarm.dataset.eid);
     if(entry) openAlertDialog(entry);
+    return;
+  }
+  const locB = e.target.closest(".locbtn");
+  if(locB){
+    const entry = entriesCache.find(x=> String(x.id)===locB.dataset.eid);
+    if(entry) openLocDialog(entry);
     return;
   }
   const del = e.target.closest(".del");
@@ -1273,8 +1307,8 @@ function rtBuyCell(r){
 function feBadge(has){
   if(has===undefined||has===null) return '';
   return has
-    ? `<span class="fe">⚡ Fracht-Aufzug</span>`
-    : `<span class="fe-no">⚠ Kein Aufzug · von Hand</span>`;
+    ? `<span class="fe">⚡ Auto-Load</span>`
+    : `<span class="fe-no">⚠ Kein Auto-Load · von Hand</span>`;
 }
 function rtRow(r, dir){
   return `<tr class="${dir==='Rück'?'rt-ret':''}">
@@ -1468,6 +1502,27 @@ makeCombo($("#material"), ()=> commodities.map(c=>({value:c.name})), ()=>{ refre
 makeCombo($("#location"), ()=> stations);
 makeCombo($("#ship"), ()=> ships, ()=> saveDefaultShip());
 makeCombo($("#bbMaterial"), ()=> commodities.map(c=>({value:c.name})), ()=> bbUpdate());
+makeCombo($("#editLoc"), ()=> stations);
+
+// ---- Standort-aendern-Dialog ----
+let locEntry = null;
+function openLocDialog(entry){
+  locEntry = entry;
+  $("#locModal").style.display = "flex";
+  $("#locSub").textContent = `${esc(entry.commodityName)} · ${fmt(entry.units)} SCU`;
+  $("#editLoc").value = entry.location || "";
+  $("#editLoc").focus();
+}
+function closeLocDialog(){ $("#locModal").style.display="none"; locEntry=null; }
+$("#locClose").addEventListener("click", closeLocDialog);
+$("#locCancel").addEventListener("click", closeLocDialog);
+$("#locModal").addEventListener("mousedown", e=>{ if(e.target.id==="locModal") closeLocDialog(); });
+$("#locSave").addEventListener("click", async ()=>{
+  if(!locEntry) return;
+  await window.goSetLocation(locEntry.id, $("#editLoc").value.trim());
+  toast("Standort geändert");
+  closeLocDialog(); loadEntries();
+});
 
 // ---- Einstellungen (Zahnrad) ----
 async function openSettings(){

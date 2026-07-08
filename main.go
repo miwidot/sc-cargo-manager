@@ -160,6 +160,18 @@ func (s *store) markSold(id int64, total float64, when string) (Entry, error) {
 	return Entry{}, errors.New("nicht gefunden")
 }
 
+func (s *store) setLocation(id int64, location string) (Entry, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.items {
+		if s.items[i].ID == id {
+			s.items[i].Location = location
+			return s.items[i], s.saveLocked()
+		}
+	}
+	return Entry{}, errors.New("nicht gefunden")
+}
+
 func (s *store) setAlert(id int64, price float64) (Entry, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -368,6 +380,11 @@ func main() {
 	// goSetAlert(id, price) -> Entry (Alarm-Preis setzen, 0 = aus)
 	must(w.Bind("goSetAlert", func(id int64, price float64) (Entry, error) {
 		return st.setAlert(id, price)
+	}))
+
+	// goSetLocation(id, location) -> Entry (Standort der Ladung aendern)
+	must(w.Bind("goSetLocation", func(id int64, location string) (Entry, error) {
+		return st.setLocation(id, location)
 	}))
 
 	// goDataPath() -> string (Anzeige wo die Datei liegt)
