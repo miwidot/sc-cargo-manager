@@ -100,6 +100,8 @@
   .leg-boxes{font-size:11px;color:var(--muted);margin-bottom:3px}
   .buy-full{color:var(--accent2);font-size:11px;font-weight:700}
   .buy-part{color:var(--warn);font-size:11px}
+  .fe{font-size:10px;font-weight:700;color:var(--accent2);white-space:nowrap}
+  .fe-no{font-size:10px;font-weight:700;color:var(--warn);white-space:nowrap}
   select:focus{border-color:var(--accent)}
   .wrap{width:100%;max-width:1500px;margin:0 auto;padding:22px;display:grid;gap:22px}
   .grid{display:grid;grid-template-columns:1fr 1fr;gap:22px}
@@ -447,6 +449,7 @@
     <div class="field" style="display:flex;flex-wrap:wrap;align-items:center;gap:18px">
       <label class="chk"><input type="checkbox" id="rtAuto">Auto-Load — Bestand/Bedarf ignorieren</label>
       <label class="chk"><input type="checkbox" id="rtRound">Rundtrip — Rückroute zum Start matchen</label>
+      <label class="chk"><input type="checkbox" id="rtFreight">Nur Fracht-Aufzug (Auto-Load) — Handlade-Terminals ausblenden</label>
     </div>
     <div id="rtResults"><div class="best-empty">Lädt Routen…</div></div>
   </div>
@@ -1226,6 +1229,7 @@ async function rtLoad(){
   const origin = $("#rtOrigin").value;                if(origin)   p.set("origin", origin);
   const dest = $("#rtDest").value;                    if(dest)     p.set("dest", dest);
   if($("#rtAuto").checked)  p.set("autoload","1");   // Bestand/Bedarf ignorieren
+  if($("#rtFreight").checked) p.set("freightonly","1"); // nur Terminals mit Fracht-Aufzug (Auto-Load)
   if($("#rtRound").checked) p.set("roundtrip","1");  // Rueckroute zum Start matchen
   $("#rtResults").innerHTML = `<div class="spin">⟳ berechne Routen…</div>`;
   try{
@@ -1263,12 +1267,21 @@ function rtBuyCell(r){
 }
 
 // eine Tabellenzeile fuer eine (Teil-)Route
+// Fracht-Aufzug (Auto-Load) Badge — Terminals ohne Aufzug muss man von Hand laden
+// (jede SCU-Box per Traktorstrahl). from/toFreightElevator kommen aus der
+// CitizenHQ-API (/trade/trader-routes). undefined (unbekannt) -> nichts anzeigen.
+function feBadge(has){
+  if(has===undefined||has===null) return '';
+  return has
+    ? `<span class="fe">⚡ Fracht-Aufzug</span>`
+    : `<span class="fe-no">⚠ Kein Aufzug · von Hand</span>`;
+}
 function rtRow(r, dir){
   return `<tr class="${dir==='Rück'?'rt-ret':''}">
     ${dir!==null?`<td class="rt-dir">${dir}</td>`:''}
     <td class="mat">${esc(r.commodity)}<div class="t-sys ${isStale(r.updatedAt)?'stale':''}">Stand ${agoText(r.updatedAt)||'?'}</div></td>
-    <td>${esc(r.from)}<div class="t-sys">${esc(r.fromSystem)}</div></td>
-    <td>${esc(r.to)}<div class="t-sys">${esc(r.toSystem)}</div></td>
+    <td>${esc(r.from)}<div class="t-sys">${esc(r.fromSystem)}</div><div>${feBadge(r.fromFreightElevator)}</div></td>
+    <td>${esc(r.to)}<div class="t-sys">${esc(r.toSystem)}</div><div>${feBadge(r.toFreightElevator)}</div></td>
     <td class="num">${fmt(r.buy)}</td>
     <td class="num">${fmt(r.sell)}</td>
     <td class="num">${fmt(r.marginPerScu)}</td>
@@ -1291,7 +1304,7 @@ function rtLeg(x, dir, isRet){
     <div class="leg-dir">${dir}</div>
     <div>
       <div class="leg-title">${esc(x.commodity)}</div>
-      <div class="leg-route">${esc(x.from)} <span class="t-sys">(${esc(x.fromSystem)})</span><span class="arrow">→</span>${esc(x.to)} <span class="t-sys">(${esc(x.toSystem)})</span></div>
+      <div class="leg-route">${esc(x.from)} <span class="t-sys">(${esc(x.fromSystem)})</span> ${feBadge(x.fromFreightElevator)}<span class="arrow">→</span>${esc(x.to)} <span class="t-sys">(${esc(x.toSystem)})</span> ${feBadge(x.toFreightElevator)}</div>
     </div>
     <div class="leg-nums">
       ${buy}
@@ -1350,7 +1363,7 @@ function rtRender(){
 
 $("#rtAge").innerHTML = ageOptionsHTML();
 ["rtCargo","rtBudget"].forEach(id=> $("#"+id).addEventListener("input", rtSchedule));
-["rtOrigin","rtDest","rtAuto","rtRound"].forEach(id=> $("#"+id).addEventListener("change", rtLoad));
+["rtOrigin","rtDest","rtAuto","rtRound","rtFreight"].forEach(id=> $("#"+id).addEventListener("change", rtLoad));
 ["rtSort","rtAge"].forEach(id=> $("#"+id).addEventListener("change", rtRender));
 
 // ---- Menge: Anzahl x Container -> SCU (live berechnet, beim Speichern genutzt) ----
