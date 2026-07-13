@@ -46,6 +46,7 @@ func pageHTML() string {
 // Entry ist ein einzelner Transport-Log-Eintrag.
 type Entry struct {
 	ID            int64   `json:"id"`
+	Kind          string  `json:"kind"`          // "" / "cargo" = Handelsware, "ore" = Roherz (Mining)
 	When          string  `json:"when"`          // RFC3339
 	Location      string  `json:"location"`      // Ort / Station wo gekauft/geladen
 	CommodityID   int     `json:"commodityId"`   // citizenhq commodity id (fuer best-buyer)

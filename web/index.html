@@ -121,6 +121,10 @@
   }
   input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(55,192,246,.12)}
   input::placeholder{color:#455467}
+  /* Spin-Pfeile der Zahlenfelder ausblenden (nur Tastatur-Eingabe) */
+  input[type=number]::-webkit-inner-spin-button,
+  input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+  input[type=number]{-moz-appearance:textfield;appearance:textfield}
   .hint{font-size:11px;color:var(--muted);margin-top:4px}
   /* Menge: Anzahl x Container */
   .qty-row{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
@@ -171,6 +175,14 @@
   .split-row:first-of-type{border-top:none}
   .split-gain{margin-top:8px;color:var(--accent2);font-weight:700;font-size:13px}
 
+  /* Mining */
+  .mn-methods{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}
+  .mn-methods-title{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700;margin-bottom:10px}
+  .mn-method{display:flex;flex-wrap:wrap;align-items:center;gap:16px;padding:6px 0;font-size:12px;border-bottom:1px solid #131c27}
+  .mn-mname{font-weight:700;color:var(--txt);min-width:180px}
+  .mn-rate{color:var(--muted)}
+  .mn-rate .mn-off{color:#2a3648}
+
   /* Markt-Board */
   .spark{vertical-align:middle}
   .chg-up{color:var(--accent2)}
@@ -218,6 +230,9 @@
   .alarmbtn:hover{border-color:var(--warn);color:var(--warn)}
   .alarmbtn.on{color:var(--warn);border-color:var(--warn);background:rgba(255,176,32,.12)}
   .sold-badge{color:var(--accent2);font-weight:600;font-size:12px;white-space:nowrap}
+  .ore-tag{font-size:10px;font-weight:700;color:var(--amber,#ff9e3d);border:1px solid #ff9e3d55;border-radius:20px;padding:1px 7px;margin-left:6px;vertical-align:middle}
+  .refbtn{background:rgba(55,192,246,.08);border:1px solid var(--line);color:var(--accent);border-radius:6px;padding:4px 9px;cursor:pointer;font-size:12px;white-space:nowrap}
+  .refbtn:hover{background:rgba(55,192,246,.16);border-color:var(--accent)}
   .locbtn{background:none;border:none;color:var(--muted);cursor:pointer;padding:2px 3px;line-height:0;vertical-align:middle;opacity:.5}
   tr:hover .locbtn{opacity:1}
   .locbtn:hover{color:var(--accent)}
@@ -303,6 +318,7 @@
   <button class="tab" data-tab="buyer">Best Buyer</button>
   <button class="tab" data-tab="routes">Routen</button>
   <button class="tab" data-tab="market">Markt</button>
+  <button class="tab" data-tab="mining">Mining</button>
 </nav>
 
 <div class="wrap">
@@ -488,6 +504,88 @@
     <div id="mktResults"><div class="best-empty">Lädt Marktdaten…</div></div>
   </div>
  </div><!-- /tab-market -->
+
+ <div class="tab-panel" id="tab-mining" hidden>
+  <div class="grid">
+    <!-- Roherz erfassen -->
+    <div class="card">
+      <h2>Roherz erfassen</h2>
+      <div class="row">
+        <div class="field">
+          <label>Datum / Zeit</label>
+          <input type="datetime-local" id="mnWhen">
+        </div>
+        <div class="field">
+          <label>Lagerplatz (wo liegt's)</label>
+          <div class="combo"><input id="mnLoc" placeholder="tippen… z.B. ARC-L1" autocomplete="off"></div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Erz</label>
+        <div class="combo"><input id="mnOre" placeholder="tippen… z.B. Quantainium" autocomplete="off"></div>
+        <div class="hint" id="mnOreHint">Roherz aus dem Mining.</div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>Menge (Anzahl × Container)</label>
+          <div class="qty-row">
+            <input type="number" id="mnCount" min="0" step="1" placeholder="Anzahl">
+            <span>×</span>
+            <select id="mnSize"><option value="1">1</option><option value="2">2</option><option value="4" selected>4</option><option value="8">8</option><option value="16">16</option><option value="24">24</option><option value="32">32</option></select>
+            <span>SCU</span>
+            <span class="qty-eq">= <b id="mnTotal">0</b> SCU</span>
+          </div>
+          <input type="hidden" id="mnUnits">
+        </div>
+        <div class="field">
+          <label>Einkauf/Kosten pro SCU (optional)</label>
+          <input type="number" id="mnBuy" min="0" step="1" placeholder="0">
+        </div>
+      </div>
+      <button class="primary" id="mnSave" disabled>Roherz speichern</button>
+    </div>
+    <!-- Live-Auszahlung -->
+    <div class="card">
+      <h2>Auszahlung — Roh vs. Refined</h2>
+      <div id="mnBest"><div class="best-empty">Erz + Menge eingeben → Roh-Verkauf, Refined-Wert und beste Raffinerie erscheinen.</div></div>
+    </div>
+  </div>
+
+  <!-- Roherz-Log -->
+  <div class="card">
+    <h2>Roherz-Log</h2>
+    <div id="oreStats" class="stats"></div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr>
+          <th>Datum</th><th>Lagerplatz</th><th>Erz</th>
+          <th class="num">SCU</th><th class="num">≈ Refined jetzt</th>
+          <th>Raffinerie</th><th>Verkauf</th><th></th>
+        </tr></thead>
+        <tbody id="oreRows"></tbody>
+      </table>
+    </div>
+    <div class="empty" id="oreEmpty" style="display:none">Noch kein Roherz erfasst.</div>
+  </div>
+
+  <!-- Mining-Board (Referenz) -->
+  <div class="card">
+    <h2>Mining-Board — was lohnt sich</h2>
+    <div class="row">
+      <div class="field">
+        <label>Sortierung</label>
+        <select id="mnSort">
+          <option value="uplift">Uplift % (Refining-Bonus)</option>
+          <option value="refined">Refined-Preis</option>
+          <option value="raw">Roh-Preis</option>
+          <option value="name">Name</option>
+        </select>
+      </div>
+    </div>
+    <div id="mnResults"><div class="best-empty">Lädt Mining-Daten…</div></div>
+    <div id="mnMethods" class="mn-methods"></div>
+  </div>
+ </div><!-- /tab-mining -->
 </div>
 
 <!-- Ziel-Auswahl-Fenster (Verkaufsziel waehlen, nach System filtern) -->
@@ -574,7 +672,7 @@
       <div><h3>Standort ändern</h3><div class="modal-sub" id="locSub"></div></div>
       <button class="modal-x" id="locClose">✕</button>
     </div>
-    <div class="modal-body">
+    <div class="modal-body" style="overflow:visible">
       <div class="field">
         <label>Aktueller Standort der Ladung</label>
         <div class="combo"><input id="editLoc" placeholder="tippen… z.B. Area18" autocomplete="off"></div>
@@ -602,6 +700,17 @@
         <button type="button" id="mergeDo" class="sc-btn">Zusammenführen</button>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- Raffinerie-Auswahl -->
+<div class="modal-overlay" id="refModal" style="display:none">
+  <div class="modal">
+    <div class="modal-head">
+      <div><h3>Raffinerie wählen</h3><div class="modal-sub" id="refSub"></div></div>
+      <button class="modal-x" id="refClose">✕</button>
+    </div>
+    <div class="modal-body" id="refBody"></div>
   </div>
 </div>
 
@@ -892,31 +1001,42 @@ async function updatePortfolio(open){
   open.forEach(e=>{ if(e.commodityId) byId[e.commodityId]=(byId[e.commodityId]||0)+(e.units||0); });
   const priceById = {};
   for(const [id,qty] of Object.entries(byId)){
+    const ore = oreByCid[id];
+    if(ore && ore.refinedSell){ priceById[id]=ore.refinedSell; continue; } // Roherz -> refined-Wert (roh nicht verkaufbar)
     try{ const d=await fetchBuyers(Number(id), Math.round(qty)); if(d.buyers[0]) priceById[id]=d.buyers[0].price; }catch(_){}
   }
   // Gesamt-Kachel
   let est = 0;
   open.forEach(e=>{ const p=priceById[e.commodityId]; if(p) est += (e.units||0)*p; });
   if(el) el.textContent = fmt(est);
-  // pro Zeile: ≈ Erloes jetzt (Menge x Bestpreis/SCU), Farbe = Gewinn vs. Einkauf
+  // pro Zeile: ≈ Erloes jetzt (Menge x Preis/SCU)
   open.forEach(e=>{
     const cell = document.getElementById("est-"+e.id); if(!cell) return;
+    const ore = oreByCid[e.commodityId];
     const p = priceById[e.commodityId];
     if(!p){ cell.textContent="–"; return; }
     const val = (e.units||0)*p;
-    const profit = (e.paid||0)>0 ? val-e.paid : null;
-    cell.innerHTML = `${fmt(val)}${profit!=null?` <span class="t-sys ${profit>=0?'pos':'neg'}">${profit>=0?'+':''}${fmt(profit)}</span>`:''}`;
-    cell.title = `${fmt(p)}/SCU × ${fmt(e.units)} SCU`;
+    if(ore){
+      cell.innerHTML = `${fmt(val)} <span class="t-sys pos">→ refined +${(ore.refineUplift||0).toFixed(0)}%</span>`;
+      cell.title = `Roherz — nach Refining ≈ ${fmt(ore.refinedSell)}/SCU als ${esc(ore.refinedName)}. Wert vor Yield-Verlust.`;
+    } else {
+      const profit = (e.paid||0)>0 ? val-e.paid : null;
+      cell.innerHTML = `${fmt(val)}${profit!=null?` <span class="t-sys ${profit>=0?'pos':'neg'}">${profit>=0?'+':''}${fmt(profit)}</span>`:''}`;
+      cell.title = `${fmt(p)}/SCU × ${fmt(e.units)} SCU`;
+    }
   });
 }
 
 async function loadEntries(){
   const items = await window.goLoadEntries();
   entriesCache = items;
-  renderStats(items);
+  const cargo = items.filter(e=> e.kind!=="ore");
+  const ore = items.filter(e=> e.kind==="ore");
+  renderOreLog(ore);
+  renderStats(cargo);
   const tb = $("#rows"); tb.innerHTML="";
-  $("#emptyLog").style.display = items.length?"none":"block";
-  for(const e of items){
+  $("#emptyLog").style.display = cargo.length?"none":"block";
+  for(const e of cargo){
     const tr = document.createElement("tr");
     const d = e.when ? new Date(e.when).toLocaleString("de-DE",{day:"2-digit",month:"2-digit",year:"2-digit",hour:"2-digit",minute:"2-digit"}) : "–";
     const ziel = e.sellTarget
@@ -944,7 +1064,7 @@ async function loadEntries(){
     tr.innerHTML = `
       <td>${d}</td>
       <td>${loc}</td>
-      <td class="mat">${esc(e.commodityName)}</td>
+      <td class="mat">${esc(e.commodityName)}${oreByCid[e.commodityId]?' <span class="ore-tag">Roherz</span>':''}</td>
       <td class="num${over?' over':''}${hasCalc?' has-calc':''}" title="${esc(calc)}">${scu}</td>
       <td class="num" id="est-${e.id}">${e.sold?'–':'…'}</td>
       <td>${ziel}</td>
@@ -1001,6 +1121,15 @@ async function openSellDialog(entry){
   $("#sellModal").style.display = "flex";
   $("#sellSub").textContent = `${esc(entry.commodityName)} · ${fmt(entry.units)} SCU`;
   $("#sellTotal").value = "";
+  // Roherz: Erloes kommt vom raffinierten Material (Board), kein Best-Buyer noetig
+  const ore = oreByCid[entry.commodityId];
+  if(ore && ore.refinedSell){
+    const est = Math.round((entry.units||0)*ore.refinedSell);
+    $("#sellTotal").value = est;
+    $("#sellHint").innerHTML = `Roherz raffiniert (${esc(ore.refinedName)}) ≈ ${fmt(ore.refinedSell)}/SCU → ${fmt(est)} aUEC — anpassen auf deinen echten Erlös (nach Yield).`;
+    $("#sellTotal").focus();
+    return;
+  }
   $("#sellHint").textContent = "⟳ hole aktuellen Bestpreis…";
   try{
     const d = await fetchBuyers(entry.commodityId, Math.round(entry.units));
@@ -1268,6 +1397,7 @@ document.querySelector(".tabs").addEventListener("click", e=>{
     if(!rtState) rtLoad();
   }
   if(name==="market" && !mktState) mktLoad();
+  if(name==="mining"){ if(!$("#mnWhen").value) $("#mnWhen").value=nowLocal(); if(!mnState) mnLoad(); }
 });
 
 // ---- Markt-Movers-Board ----
@@ -1319,6 +1449,184 @@ function mktRender(){
     <tbody>${rows}</tbody></table></div>`;
 }
 ["mktSort","mktLegal"].forEach(id=> $("#"+id).addEventListener("change", mktRender));
+
+// ---- Mining-Board ----
+let mnState = null, mnMethods = null;
+async function mnLoad(){
+  $("#mnResults").innerHTML = `<div class="spin">⟳ lade Mining-Daten…</div>`;
+  try{
+    const [board, methods] = await Promise.all([
+      fetch(API+"/mining/board").then(r=>r.json()),
+      fetch(API+"/mining/methods").then(r=>r.json()).catch(()=>[])
+    ]);
+    mnState = board; mnMethods = methods;
+    mnRender(); mnRenderMethods();
+  }catch(e){ $("#mnResults").innerHTML = `<div class="best-empty">Fehler beim Laden der Mining-Daten.</div>`; }
+}
+function mnRender(){
+  if(!mnState) return;
+  const sort = $("#mnSort").value;
+  const list = mnState.slice().sort((a,b)=>
+    sort==="refined" ? (b.refinedSell||0)-(a.refinedSell||0) :
+    sort==="raw"     ? (b.rawSell||0)-(a.rawSell||0) :
+    sort==="name"    ? String(a.ore).localeCompare(String(b.ore)) :
+                       (b.refineUplift||0)-(a.refineUplift||0)
+  );
+  const rows = list.map(o=>{
+    const up = o.refineUplift||0;
+    const upCls = up>=100?'chg-up':(up>0?'':'chg-down');
+    return `<tr>
+      <td class="mat">${esc(o.ore)}</td>
+      <td class="num">${o.rawSell?fmt(o.rawSell):'–'}</td>
+      <td>${o.rawTerminal?esc(o.rawTerminal):'<span class="muted">nicht roh verkaufbar</span>'}</td>
+      <td class="mat">${esc(o.refinedName||'')}</td>
+      <td class="num">${o.refinedSell?fmt(o.refinedSell):'–'}</td>
+      <td class="num ${upCls}">${up?('+'+up.toFixed(0)+' %'):'–'}</td>
+    </tr>`;
+  }).join("");
+  $("#mnResults").innerHTML = `<div style="overflow-x:auto"><table>
+    <thead><tr>
+      <th>Erz</th><th class="num">Roh/SCU</th><th>Roh verkaufen bei</th>
+      <th>Refined</th><th class="num">Refined/SCU</th><th class="num">Uplift</th>
+    </tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+function mnRenderMethods(){
+  if(!mnMethods || !mnMethods.length){ $("#mnMethods").innerHTML=""; return; }
+  const dots = n => '●'.repeat(Math.max(0,n)) + '<span class="mn-off">'+'●'.repeat(Math.max(0,3-n))+'</span>';
+  const rows = mnMethods.slice().sort((a,b)=>(b.ratingYield||0)-(a.ratingYield||0)).map(m=>`
+    <div class="mn-method">
+      <span class="mn-mname">${esc(m.name)}</span>
+      <span class="mn-rate">Yield ${dots(m.ratingYield)}</span>
+      <span class="mn-rate">Kosten ${dots(m.ratingCost)}</span>
+      <span class="mn-rate">Speed ${dots(m.ratingSpeed)}</span>
+    </div>`).join("");
+  $("#mnMethods").innerHTML = `<div class="mn-methods-title">Raffinerie-Verfahren (${mnMethods.length}) — mehr ● = besser</div>${rows}`;
+}
+$("#mnSort").addEventListener("change", mnRender);
+
+// ========== Roherz-Log (Mining) ==========
+function oreList(){ return Object.values(oreByCid).map(o=>({ value:o.ore, label:`+${(o.refineUplift||0).toFixed(0)}%`, ore:o })); }
+function currentOreEntry(){ const nm=$("#mnOre").value.trim().toLowerCase(); return Object.values(oreByCid).find(o=> (o.ore||"").toLowerCase()===nm) || null; }
+function mnRefreshSave(){ $("#mnSave").disabled = !(currentOreEntry() && (parseFloat($("#mnUnits").value)||0)>0); }
+function mnUpdateUnits(){ const c=parseFloat($("#mnCount").value)||0,s=parseFloat($("#mnSize").value)||0,t=c*s; $("#mnTotal").textContent=fmt(t); $("#mnUnits").value=t; mnRefreshSave(); mnScheduleBest(); }
+let mnBestT=null; function mnScheduleBest(){ clearTimeout(mnBestT); mnBestT=setTimeout(updateMnBest,300); }
+function updateOreHint(){ const o=currentOreEntry(); $("#mnOreHint").textContent = o? `Roh ${fmt(o.rawSell)}/SCU · refined ${fmt(o.refinedSell)}/SCU (+${(o.refineUplift||0).toFixed(0)}%)` : "Roherz aus dem Mining."; }
+
+async function updateMnBest(){
+  const o=currentOreEntry(), units=parseFloat($("#mnUnits").value)||0, box=$("#mnBest");
+  if(!o || units<=0){ box.innerHTML=`<div class="best-empty">Erz + Menge eingeben → Roh-Verkauf, Refined-Wert und beste Raffinerie erscheinen.</div>`; return; }
+  const rawVal=(o.rawSell||0)*units, refVal=(o.refinedSell||0)*units;
+  let html=`<div class="best-head"><span>${esc(o.ore)} · ${fmt(units)} SCU</span><b>${fmt(refVal)} aUEC</b></div>`;
+  html+=`<div class="buyer"><div><span class="name">Roh verkaufen</span><div class="sys">${o.rawTerminal?esc(o.rawTerminal):'nicht roh verkaufbar'}</div></div><div><div class="total">Σ ${o.rawSell?fmt(rawVal):'–'}</div></div></div>`;
+  html+=`<div class="buyer top"><div><span class="name">Raffiniert verkaufen</span><span class="badge">+${(o.refineUplift||0).toFixed(0)}%</span><div class="sys">als ${esc(o.refinedName)}</div></div><div><div class="price">${fmt(o.refinedSell)}/SCU</div><div class="total">Σ ${fmt(refVal)}</div></div></div>`;
+  box.innerHTML=html+`<div class="spin" id="mnRefLoading">⟳ beste Raffinerie…</div>`;
+  try{
+    const y=await fetch(API+"/mining/yields/"+o.oreId).then(r=>r.json());
+    const top=(y||[]).slice().sort((a,b)=>parseFloat(b.value)-parseFloat(a.value)).slice(0,3);
+    const rl=document.getElementById("mnRefLoading"); if(!rl) return;
+    rl.outerHTML = top.length ? `<div class="profit">Beste Raffinerien: ${top.map(t=>`${esc(t.terminalName)} <b class="pos">${parseFloat(t.value).toFixed(0)}%</b>`).join(" · ")}</div>` : "";
+  }catch(_){ const rl=document.getElementById("mnRefLoading"); if(rl) rl.remove(); }
+}
+$("#mnCount").addEventListener("input", mnUpdateUnits);
+$("#mnSize").addEventListener("change", mnUpdateUnits);
+$("#mnOre").addEventListener("input", ()=>{ mnRefreshSave(); mnScheduleBest(); updateOreHint(); });
+makeCombo($("#mnOre"), oreList, ()=>{ mnRefreshSave(); mnScheduleBest(); updateOreHint(); });
+makeCombo($("#mnLoc"), ()=> stations);
+$("#mnSave").addEventListener("click", async ()=>{
+  const o=currentOreEntry(); if(!o){ toast("Bitte Erz aus der Liste wählen"); return; }
+  const units=parseFloat($("#mnUnits").value)||0, buy=parseFloat($("#mnBuy").value)||0;
+  const when=$("#mnWhen").value? new Date($("#mnWhen").value).toISOString():"";
+  await window.goAddEntry({ kind:"ore", when, location:$("#mnLoc").value.trim(),
+    commodityId:o.oreId, commodityName:o.ore, units,
+    qtyCount:parseFloat($("#mnCount").value)||0, qtySize:parseFloat($("#mnSize").value)||0,
+    buyPerUnit:buy, paid:units*buy });
+  toast("Roherz gespeichert");
+  $("#mnOre").value=""; $("#mnCount").value=""; $("#mnBuy").value=""; mnUpdateUnits(); $("#mnWhen").value=nowLocal(); updateOreHint();
+  loadEntries();
+});
+
+function renderOreStats(ore){
+  const box=$("#oreStats"); if(!box) return;
+  if(!ore.length){ box.innerHTML=""; return; }
+  const open=ore.filter(e=>!e.sold), sold=ore.filter(e=>e.sold);
+  const openSCU=open.reduce((a,e)=>a+(e.units||0),0);
+  const est=open.reduce((a,e)=>{ const o=oreByCid[e.commodityId]; return a+(o?(e.units||0)*(o.refinedSell||0):0); },0);
+  const realized=sold.reduce((a,e)=>a+((e.soldTotal||0)-(e.paid||0)),0);
+  box.innerHTML=`<div class="stat-row">
+    <div class="stat"><div class="stat-v">${fmt(openSCU)}</div><div class="stat-l">Roh offen (SCU)</div></div>
+    <div class="stat"><div class="stat-v">${fmt(est)}</div><div class="stat-l">≈ Refined-Wert</div></div>
+    <div class="stat"><div class="stat-v ${realized>=0?'g':''}" style="${realized<0?'color:var(--danger)':''}">${realized>=0?'+':''}${fmt(realized)}</div><div class="stat-l">Realisiert</div></div>
+    <div class="stat"><div class="stat-v">${sold.length}/${ore.length}</div><div class="stat-l">verkauft/gesamt</div></div>
+  </div>`;
+}
+function renderOreLog(ore){
+  renderOreStats(ore);
+  const tb=$("#oreRows"); if(!tb) return; tb.innerHTML="";
+  $("#oreEmpty").style.display = ore.length?"none":"block";
+  const pencil = id=>`<button class="locbtn" data-eid="${id}" title="Standort ändern"><svg width="11" height="11" viewBox="0 0 16 16"><path d="M11.3 2.2l2.5 2.5L5.2 13.3l-3 .5.5-3z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg></button>`;
+  for(const e of ore){
+    const tr=document.createElement("tr");
+    const d=e.when? new Date(e.when).toLocaleString("de-DE",{day:"2-digit",month:"2-digit",year:"2-digit",hour:"2-digit",minute:"2-digit"}):"–";
+    const loc=`<span class="loc-txt">${esc(e.location)||'–'}</span> ${pencil(e.id)}`;
+    const raff=e.sold ? '<span class="muted">–</span>'
+      : (e.sellTarget ? `<span class="target">${esc(e.sellTarget)}</span> <button class="refbtn" data-eid="${e.id}" title="ändern">▸</button>` : `<button class="refbtn" data-eid="${e.id}">Raffinerie ▸</button>`);
+    let verkauf;
+    if(e.sold){ const pr=(e.soldTotal||0)-(e.paid||0); verkauf=`<span class="sold-badge">✓ ${fmt(e.soldTotal)} <span class="${pr>=0?'pos':'neg'}">(${pr>=0?'+':''}${fmt(pr)})</span></span> <button class="unsoldbtn" data-eid="${e.id}">↩</button>`; }
+    else verkauf=`<button class="soldbtn" data-eid="${e.id}">✓ Verkauft</button>`;
+    if(e.sold) tr.className="sold";
+    tr.innerHTML=`
+      <td>${d}</td>
+      <td>${loc}</td>
+      <td class="mat">${esc(e.commodityName)}</td>
+      <td class="num">${fmt(e.units)}</td>
+      <td class="num" id="oreest-${e.id}">${e.sold?'–':'…'}</td>
+      <td>${raff}</td>
+      <td>${verkauf}</td>
+      <td><button class="del" data-del="${e.id}">✕</button></td>`;
+    tb.appendChild(tr);
+  }
+  ore.filter(e=>!e.sold).forEach(e=>{
+    const cell=document.getElementById("oreest-"+e.id); if(!cell) return;
+    const o=oreByCid[e.commodityId];
+    if(o && o.refinedSell){ cell.innerHTML=`${fmt((e.units||0)*o.refinedSell)} <span class="t-sys pos">+${(o.refineUplift||0).toFixed(0)}%</span>`; cell.title=`refined ${fmt(o.refinedSell)}/SCU × ${fmt(e.units)} SCU`; }
+    else cell.textContent="–";
+  });
+}
+$("#oreRows").addEventListener("click", async e=>{
+  const loc=e.target.closest(".locbtn"); if(loc){ const en=entriesCache.find(x=>String(x.id)===loc.dataset.eid); if(en) openLocDialog(en); return; }
+  const ref=e.target.closest(".refbtn"); if(ref){ const en=entriesCache.find(x=>String(x.id)===ref.dataset.eid); if(en) openRefModal(en); return; }
+  const sold=e.target.closest(".soldbtn"); if(sold){ const en=entriesCache.find(x=>String(x.id)===sold.dataset.eid); if(en) openSellDialog(en); return; }
+  const unsold=e.target.closest(".unsoldbtn"); if(unsold){ await window.goMarkUnsold(Number(unsold.dataset.eid)); loadEntries(); return; }
+  const del=e.target.closest(".del"); if(del){ await window.goDeleteEntry(Number(del.dataset.del)); loadEntries(); }
+});
+
+// Raffinerie-Auswahl-Modal
+let refEntry=null;
+async function openRefModal(entry){
+  refEntry=entry;
+  $("#refModal").style.display="flex";
+  $("#refSub").textContent=`${esc(entry.commodityName)} · ${fmt(entry.units)} SCU`;
+  $("#refBody").innerHTML=`<div class="spin">⟳ lade Raffinerien…</div>`;
+  try{
+    const y=await fetch(API+"/mining/yields/"+entry.commodityId).then(r=>r.json());
+    const list=(y||[]).slice().sort((a,b)=>parseFloat(b.value)-parseFloat(a.value));
+    if(!list.length){ $("#refBody").innerHTML=`<div class="best-empty">Keine Raffinerie-Daten für dieses Erz.</div>`; return; }
+    $("#refBody").innerHTML=list.map((r,i)=>`
+      <div class="dest ${i===0?'best':''} ${entry.sellTarget===r.terminalName?'chosen':''}">
+        <div class="d-info"><div class="d-name">${esc(r.terminalName)}${i===0?' <span class="badge">BEST</span>':''}</div><div class="d-sys">${esc(r.system||'')}</div></div>
+        <div class="d-num"><div class="d-price">Yield ${parseFloat(r.value).toFixed(0)}%</div></div>
+        <button class="pickbtn" data-term="${esc(r.terminalName)}" data-sys="${esc(r.system||'')}">Wählen</button>
+      </div>`).join("");
+  }catch(_){ $("#refBody").innerHTML=`<div class="best-empty">Fehler beim Laden.</div>`; }
+}
+function closeRefModal(){ $("#refModal").style.display="none"; refEntry=null; }
+$("#refClose").addEventListener("click", closeRefModal);
+$("#refModal").addEventListener("mousedown", e=>{ if(e.target.id==="refModal") closeRefModal(); });
+$("#refBody").addEventListener("click", async e=>{
+  const p=e.target.closest(".pickbtn"); if(!p||!refEntry) return;
+  await window.goSetTarget(refEntry.id, p.dataset.term, p.dataset.sys);
+  toast("Raffinerie: "+p.dataset.term); closeRefModal(); loadEntries();
+});
 
 // ---- Routen-Tab (Profit-Routen-Rechner) ----
 let rtState = null, rtDebounce = null;
@@ -1639,10 +1947,22 @@ async function checkForUpdate(){
   }catch(_){}
 }
 
+// Mining-Board einmal laden -> Roherz-Erkennung + refined Werte im Cargo-Log
+let oreByCid = {};
+async function loadOreMap(){
+  try{
+    const board = await fetch(API+"/mining/board").then(r=>r.json());
+    const m = {};
+    board.forEach(o=>{ if(o.oreId) m[o.oreId] = o; });
+    oreByCid = m;
+  }catch(_){}
+}
+
 // go
 loadCommodities();
 loadLocations();
 loadShips().then(loadDefaultShip);
+loadOreMap().then(()=> loadEntries());  // Board vor dem Log, damit Roherz erkannt wird
 loadEntries();
 checkForUpdate();
 if(window.goDataPath){ window.goDataPath().then(p=>{ $("#conn").title = "citizenhq.space öffnen · Daten: "+p; }); }
