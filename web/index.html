@@ -105,6 +105,7 @@
   .buy-full{color:var(--accent2);font-size:11px;font-weight:700}
   .buy-part{color:var(--warn);font-size:11px}
   .fe{font-size:10px;font-weight:700;color:var(--accent2);white-space:nowrap}
+  .fe-mid{font-size:10px;font-weight:700;color:var(--accent);white-space:nowrap}
   .fe-no{font-size:10px;font-weight:700;color:var(--warn);white-space:nowrap}
   select:focus{border-color:var(--accent)}
   .wrap{width:100%;max-width:1500px;margin:0 auto;padding:22px;display:grid;gap:22px}
@@ -457,11 +458,22 @@
         </select>
       </div>
       <div class="field">
+        <label>Start-Terminal (optional)</label>
+        <div class="combo"><input id="rtOriginTerm" placeholder="tippen… z.B. Rustville" autocomplete="off"></div>
+        <div class="hint">Routen nur ab diesem Terminal</div>
+      </div>
+      <div class="field">
+        <label>Ziel-Terminal (optional)</label>
+        <div class="combo"><input id="rtDestTerm" placeholder="tippen… z.B. Admin - ARC-L1" autocomplete="off"></div>
+        <div class="hint">Routen nur zu diesem Terminal</div>
+      </div>
+      <div class="field">
         <label>Sortierung</label>
         <select id="rtSort">
           <option value="profit">Gewinn</option>
           <option value="roi">ROI %</option>
           <option value="margin">Marge / SCU</option>
+          <option value="dist">Distanz (nah zuerst)</option>
         </select>
       </div>
       <div class="field">
@@ -472,7 +484,13 @@
     <div class="field" style="display:flex;flex-wrap:wrap;align-items:center;gap:18px">
       <label class="chk"><input type="checkbox" id="rtAuto">Volle Ladung annehmen — Bestand/Bedarf ignorieren</label>
       <label class="chk"><input type="checkbox" id="rtRound">Rundtrip — Rückroute zum Start matchen</label>
-      <label class="chk"><input type="checkbox" id="rtFreight">Nur mit Auto-Load (Fracht-Aufzug) — Handlade-Terminals ausblenden</label>
+      <label class="chk">Laden:&nbsp;
+        <select id="rtLoadMode" style="width:auto">
+          <option value="">Egal (auch Handladen)</option>
+          <option value="freight">Nur mit Fracht-Aufzug</option>
+          <option value="auto">Nur mit Auto-Load (ATC lädt)</option>
+        </select>
+      </label>
     </div>
     <div id="rtResults"><div class="best-empty">Lädt Routen…</div></div>
   </div>
@@ -895,6 +913,30 @@ function updateCapacity(){
   }
 }
 
+// Terminal-Stammdaten (Fracht-Aufzug, Auto-Load, max. Box-Groesse) einmalig laden;
+// per terminalId in Abnehmer-Listen gejoint.
+let termById = {};
+async function loadTerminals(){
+  try{
+    const list = await fetch(`${API}/trade/terminals-list`).then(r=>r.json());
+    (Array.isArray(list)?list:[]).forEach(t=> termById[t.id]=t);
+  }catch(_){}
+}
+// Terminal-Name (exakt, case-insensitiv) -> ID; leer/unbekannt -> null
+function termIdByName(name){
+  const q = (name||"").trim().toLowerCase();
+  if(!q) return null;
+  for(const id in termById){ if(termById[id].name.toLowerCase()===q) return id; }
+  return null;
+}
+// Lade-Info-Zeile fuer ein Abnehmer-Terminal (Badge + groesste kaufbare Box)
+function termBadge(tid){
+  const t = termById[tid]; if(!t) return '';
+  const box = t.maxContainerSize ? `<span class="t-sys"> · Box bis ${t.maxContainerSize} SCU</span>` : '';
+  const badge = feBadge(t.freightElevator, t.autoLoad);
+  return (badge||box) ? `<div>${badge}${box}</div>` : '';
+}
+
 // fetchBuyers: nutzt den Detail-Endpoint /trade/commodity/:id, der pro Terminal
 // priceSell, scuSell (Nachfrage) UND scuSellStock (Bestand) liefert. Daraus bauen
 // wir die nach Erloes sortierte Abnehmer-Liste (qty konstant -> Sortierung nach Preis).
@@ -904,7 +946,7 @@ async function fetchBuyers(id, qty){
   const buyers = (d.listings||[])
     .filter(l => l.statusSell===1 && l.priceSell>0)
     .map(l => ({
-      terminal: l.terminal, system: l.system,
+      terminal: l.terminal, system: l.system, terminalId: l.terminalId,
       price: l.priceSell,
       total: l.priceSell * qty,
       demand: l.scuSell||0,       // gemeldete Nachfrage (oft 0)
@@ -951,7 +993,7 @@ function renderBest(data){
   let html = `<div class="best-head"><span>${data.commodity} · ${fmt(data.qty)} SCU</span><b>${fmt(buyers[0].total)} aUEC</b></div>`;
   html += buyers.map((b,i)=>`
     <div class="buyer ${i===0?'top':''}">
-      <div><span class="name">${b.terminal}</span>${i===0?'<span class="badge">TOP</span>':''}<div class="sys">${b.system}</div>${dsLine(b, data.qty)}</div>
+      <div><span class="name">${b.terminal}</span>${i===0?'<span class="badge">TOP</span>':''}<div class="sys">${b.system}</div>${termBadge(b.terminalId)}${dsLine(b, data.qty)}</div>
       <div><div class="price">${fmt(b.price)}/SCU</div><div class="total">Σ ${fmt(b.total)}</div></div>
     </div>`).join("");
   if(paid>0){
@@ -1263,6 +1305,7 @@ function renderModal(){
       <div class="d-info">
         <div class="d-name">${esc(b.terminal)}${best?' <span class="badge">TOP</span>':''}${chosen?' <span class="badge" style="background:rgba(255,209,102,.2);color:var(--gold)">ZIEL</span>':''}</div>
         <div class="d-sys">${esc(b.system)}</div>
+        ${termBadge(b.terminalId)}
         ${dem}
       </div>
       <div class="d-num"><div class="d-price">${fmt(b.price)}/SCU</div><div class="d-total">Σ ${fmt(b.total)}</div>${pf}</div>
@@ -1639,7 +1682,12 @@ async function rtLoad(){
   const origin = $("#rtOrigin").value;                if(origin)   p.set("origin", origin);
   const dest = $("#rtDest").value;                    if(dest)     p.set("dest", dest);
   if($("#rtAuto").checked)  p.set("autoload","1");   // Bestand/Bedarf ignorieren
-  if($("#rtFreight").checked) p.set("freightonly","1"); // nur Terminals mit Fracht-Aufzug (Auto-Load)
+  const load = $("#rtLoadMode").value;                    // Lade-Filter: Aufzug / Auto-Load
+  if(load==="freight") p.set("freightonly","1");     // beide Terminals mit Fracht-Aufzug
+  if(load==="auto")    p.set("autoloadonly","1");    // beide Terminals mit Auto-Load (ATC laedt)
+  // Terminal-Filter: API erwartet IDs -> Name (exakt) aus termById aufloesen
+  const ot = termIdByName($("#rtOriginTerm").value); if(ot) p.set("originTerminal", ot);
+  const dt = termIdByName($("#rtDestTerm").value);   if(dt) p.set("destTerminal", dt);
   if($("#rtRound").checked) p.set("roundtrip","1");  // Rueckroute zum Start matchen
   $("#rtResults").innerHTML = `<div class="spin">⟳ berechne Routen…</div>`;
   try{
@@ -1677,21 +1725,32 @@ function rtBuyCell(r){
 }
 
 // eine Tabellenzeile fuer eine (Teil-)Route
-// Fracht-Aufzug (Auto-Load) Badge — Terminals ohne Aufzug muss man von Hand laden
-// (jede SCU-Box per Traktorstrahl). from/toFreightElevator kommen aus der
+// Lade-Badge, zweistufig: Auto-Load (ATC laedt, nur Cargo-Deck-Stationen) >
+// Fracht-Aufzug (Aufzug da, aber selbst Boxen schleppen) > gar nichts (Handladen
+// per Traktorstrahl). from/toFreightElevator + from/toAutoLoad aus der
 // CitizenHQ-API (/trade/trader-routes). undefined (unbekannt) -> nichts anzeigen.
-function feBadge(has){
-  if(has===undefined||has===null) return '';
-  return has
-    ? `<span class="fe">⚡ Auto-Load</span>`
-    : `<span class="fe-no">⚠ Kein Auto-Load · von Hand</span>`;
+function feBadge(fe, auto){
+  if(auto) return `<span class="fe">Auto-Load</span>`;
+  if(fe===undefined||fe===null) return '';
+  return fe
+    ? `<span class="fe-mid">Fracht-Aufzug · selbst laden</span>`
+    : `<span class="fe-no">Kein Aufzug · von Hand</span>`;
+}
+// Distanz-Text einer Route: In-System-Luftlinie in Gm, sonst Cross-System-Hinweis
+function distText(r){
+  if(r.crossSystem) return `<span class="fe-no">Cross-System · Sprung nötig</span>`;
+  if(r.distanceGm!=null){
+    const d = r.distanceGm;
+    return `<span class="t-sys">Distanz ≈ ${d>=10?fmt(Math.round(d)):d.toFixed(1)} Gm</span>`;
+  }
+  return '';
 }
 function rtRow(r, dir){
   return `<tr class="${dir==='Rück'?'rt-ret':''}">
     ${dir!==null?`<td class="rt-dir">${dir}</td>`:''}
     <td class="mat">${esc(r.commodity)}<div class="t-sys ${isStale(r.updatedAt)?'stale':''}">Stand ${agoText(r.updatedAt)||'?'}</div></td>
-    <td>${esc(r.from)}<div class="t-sys">${esc(r.fromSystem)}</div><div>${feBadge(r.fromFreightElevator)}</div></td>
-    <td>${esc(r.to)}<div class="t-sys">${esc(r.toSystem)}</div><div>${feBadge(r.toFreightElevator)}</div></td>
+    <td>${esc(r.from)}<div class="t-sys">${esc(r.fromSystem)}</div><div>${feBadge(r.fromFreightElevator, r.fromAutoLoad)}</div></td>
+    <td>${esc(r.to)}<div class="t-sys">${esc(r.toSystem)}</div><div>${feBadge(r.toFreightElevator, r.toAutoLoad)}</div><div>${distText(r)}</div></td>
     <td class="num">${fmt(r.buy)}</td>
     <td class="num">${fmt(r.sell)}</td>
     <td class="num">${fmt(r.marginPerScu)}</td>
@@ -1714,7 +1773,7 @@ function rtLeg(x, dir, isRet){
     <div class="leg-dir">${dir}</div>
     <div>
       <div class="leg-title">${esc(x.commodity)}</div>
-      <div class="leg-route">${esc(x.from)} <span class="t-sys">(${esc(x.fromSystem)})</span> ${feBadge(x.fromFreightElevator)}<span class="arrow">→</span>${esc(x.to)} <span class="t-sys">(${esc(x.toSystem)})</span> ${feBadge(x.toFreightElevator)}</div>
+      <div class="leg-route">${esc(x.from)} <span class="t-sys">(${esc(x.fromSystem)})</span> ${feBadge(x.fromFreightElevator, x.fromAutoLoad)}<span class="arrow">→</span>${esc(x.to)} <span class="t-sys">(${esc(x.toSystem)})</span> ${feBadge(x.toFreightElevator, x.toAutoLoad)} ${distText(x)}</div>
     </div>
     <div class="leg-nums">
       ${buy}
@@ -1748,6 +1807,7 @@ function rtRender(){
     const loops = rtState.filter(r=> r.ret && withinAge(Math.min(r.updatedAt||0, r.ret.updatedAt||0), maxAge)).sort((a,b)=>
       sort==="roi"    ? (b.roi+ (b.ret?b.ret.roi:0)) - (a.roi+(a.ret?a.ret.roi:0)) :
       sort==="margin" ? b.marginPerScu-a.marginPerScu :
+      sort==="dist"   ? (a.distanceGm??1e9)-(b.distanceGm??1e9) :
                         (b.totalProfit||0)-(a.totalProfit||0)
     );
     if(!loops.length){ $("#rtResults").innerHTML = `<div class="best-empty">Keine vollständigen Rundreisen im gewählten Zeitraum — Filter lockern oder Rundtrip aus.</div>`; return; }
@@ -1759,6 +1819,7 @@ function rtRender(){
   const list = rtState.filter(r=> withinAge(r.updatedAt, maxAge)).sort((a,b)=>
     sort==="roi"    ? b.roi-a.roi :
     sort==="margin" ? b.marginPerScu-a.marginPerScu :
+    sort==="dist"   ? (a.distanceGm??1e9)-(b.distanceGm??1e9) :
                       b.profit-a.profit
   );
   if(!list.length){ $("#rtResults").innerHTML = `<div class="best-empty">Keine Routen im gewählten Zeitraum — Filter lockern.</div>`; return; }
@@ -1773,8 +1834,19 @@ function rtRender(){
 
 $("#rtAge").innerHTML = ageOptionsHTML();
 ["rtCargo","rtBudget"].forEach(id=> $("#"+id).addEventListener("input", rtSchedule));
-["rtOrigin","rtDest","rtAuto","rtRound","rtFreight"].forEach(id=> $("#"+id).addEventListener("change", rtLoad));
+["rtOrigin","rtDest","rtAuto","rtRound","rtLoadMode"].forEach(id=> $("#"+id).addEventListener("change", rtLoad));
 ["rtSort","rtAge"].forEach(id=> $("#"+id).addEventListener("change", rtRender));
+
+// Terminal-Filter-Combos: Quelle = geladene Terminal-Stammdaten; Neuladen bei
+// Auswahl, beim Leeren oder wenn der getippte Name exakt passt.
+const termComboSource = ()=> Object.values(termById).map(t=> ({value:t.name, label:t.system}));
+["rtOriginTerm","rtDestTerm"].forEach(id=>{
+  makeCombo($("#"+id), termComboSource, ()=> rtLoad());
+  $("#"+id).addEventListener("input", ()=>{
+    const v = $("#"+id).value.trim();
+    if(!v || termIdByName(v)) rtSchedule();
+  });
+});
 
 // ---- Menge: Anzahl x Container -> SCU (live berechnet, beim Speichern genutzt) ----
 function updateUnits(){
@@ -1826,7 +1898,7 @@ function bbRender(){
   const splitHtml = $("#bbSplit").checked ? renderSplit(list, qty) : "";
   $("#bbResults").innerHTML = splitHtml + list.map((b,i)=>`
     <div class="dest ${i===0?'best':''}">
-      <div class="d-info"><div class="d-name">${esc(b.terminal)}${i===0?' <span class="badge">TOP</span>':''}</div><div class="d-sys">${esc(b.system)}</div>${dsLine(b, qty)}</div>
+      <div class="d-info"><div class="d-name">${esc(b.terminal)}${i===0?' <span class="badge">TOP</span>':''}</div><div class="d-sys">${esc(b.system)}</div>${termBadge(b.terminalId)}${dsLine(b, qty)}</div>
       <div class="d-num"><div class="d-price">${fmt(b.price)}/SCU</div><div class="d-total">Σ ${fmt(b.total)}</div></div>
     </div>`).join("");
 }
@@ -1962,6 +2034,7 @@ async function loadOreMap(){
 loadCommodities();
 loadLocations();
 loadShips().then(loadDefaultShip);
+loadTerminals();                        // Terminal-Stammdaten (Aufzug/Auto-Load/Box) fuer Abnehmer-Listen
 loadOreMap().then(()=> loadEntries());  // Board vor dem Log, damit Roherz erkannt wird
 loadEntries();
 checkForUpdate();
