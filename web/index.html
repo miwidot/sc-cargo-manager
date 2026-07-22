@@ -801,15 +801,37 @@ async function loadCommodities(){
 }
 
 let stations = []; // [{value,label}]
+// Namen grob vergleichbar machen: Admin-/Platinum-Bay-Prefix + " Station"-Suffix weg
+function normLoc(n){
+  return (n||"").toLowerCase()
+    .replace(/^admin - /,"").replace(/^platinum bay - /,"")
+    .replace(/ station$/,"").trim();
+}
 async function loadLocations(){
   try{
-    // /stations = echte Handelsplaetze (Hurston, Area 18, Lorville, Lagrange-Stationen …)
-    const r = await fetch(API + "/stations");
-    const locs = await r.json();
-    stations = locs.map(l=>({
-      value: l.location||"",
-      label: `${l.system||''}${l.terminals?` · ${l.terminals} Term.`:''}`
-    })).sort((a,b)=> a.value.localeCompare(b.value));
+    // Zwei Quellen zusammenfuehren, damit ALLE Handelsplaetze auftauchen:
+    //  /stations         = grosse Hubs (Area 18, Lorville, Lagrange-Stationen …)
+    //  /trade/terminals-list = zusaetzlich Outposts/Mining/Salvage (v.a. Pyro, z.B.
+    //                          Rustville, Shepherd's Rest) die NICHT in /stations sind
+    const [locs, terms] = await Promise.all([
+      fetch(API + "/stations").then(r=>r.json()).catch(()=>[]),
+      fetch(API + "/trade/terminals-list").then(r=>r.json()).catch(()=>[])
+    ]);
+    const seen = new Set();
+    const out = [];
+    (Array.isArray(locs)?locs:[]).forEach(l=>{
+      const v = l.location||""; if(!v) return;
+      seen.add(normLoc(v));
+      out.push({ value:v, label:`${l.system||''}${l.terminals?` · ${l.terminals} Term.`:''}` });
+    });
+    (Array.isArray(terms)?terms:[]).forEach(t=>{
+      const v = t.name||""; if(!v) return;
+      const k = normLoc(v);
+      if(seen.has(k)) return;          // schon durch eine /stations-Location abgedeckt
+      seen.add(k);
+      out.push({ value:v, label:`${t.system||''} · Terminal` });
+    });
+    stations = out.sort((a,b)=> a.value.localeCompare(b.value));
   }catch(e){ /* Ort bleibt freies Textfeld */ }
 }
 
