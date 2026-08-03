@@ -30,7 +30,7 @@ import (
 //go:embed web/index.html
 var indexHTML string
 
-//go:embed web/hero-asteroids.webp
+//go:embed web/hero-guardian.webp
 var heroBG []byte
 
 // pageHTML setzt das eingebettete Hintergrundbild als Data-URI in die UI ein.
@@ -236,6 +236,7 @@ func (s *store) delete(id int64) error {
 type Settings struct {
 	DefaultShip    string  `json:"defaultShip"`
 	DefaultShipSCU float64 `json:"defaultShipSCU"`
+	LeanMode       bool    `json:"leanMode"` // WebView2 schlank starten (weniger RAM), Neustart noetig
 }
 
 type settingsStore struct {
@@ -258,11 +259,7 @@ func (ss *settingsStore) get() Settings {
 	return ss.data
 }
 
-func (ss *settingsStore) setShip(name string, scu float64) (Settings, error) {
-	ss.mu.Lock()
-	defer ss.mu.Unlock()
-	ss.data.DefaultShip = name
-	ss.data.DefaultShipSCU = scu
+func (ss *settingsStore) saveLocked() (Settings, error) {
 	b, err := json.MarshalIndent(ss.data, "", "  ")
 	if err != nil {
 		return ss.data, err
@@ -272,6 +269,63 @@ func (ss *settingsStore) setShip(name string, scu float64) (Settings, error) {
 		return ss.data, err
 	}
 	return ss.data, os.Rename(tmp, ss.path)
+}
+
+func (ss *settingsStore) setShip(name string, scu float64) (Settings, error) {
+	ss.mu.Lock()
+	defer ss.mu.Unlock()
+	ss.data.DefaultShip = name
+	ss.data.DefaultShipSCU = scu
+	return ss.saveLocked()
+}
+
+func (ss *settingsStore) setLean(on bool) (Settings, error) {
+	ss.mu.Lock()
+	defer ss.mu.Unlock()
+	ss.data.LeanMode = on
+	return ss.saveLocked()
+}
+
+// ---------------------------------------------------------------------------
+// API-Cache (Stammdaten auf Platte: Sofort-Start + offline-faehig)
+// ---------------------------------------------------------------------------
+
+// cacheKeyOK laesst nur harmlose Dateinamen zu (a-z0-9-_).
+func cacheKeyOK(k string) bool {
+	if k == "" || len(k) > 64 {
+		return false
+	}
+	for _, r := range k {
+		if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '-' || r == '_') {
+			return false
+		}
+	}
+	return true
+}
+
+func cacheGet(dir, key string) string {
+	if !cacheKeyOK(key) {
+		return ""
+	}
+	b, err := os.ReadFile(filepath.Join(dir, key+".json"))
+	if err != nil {
+		return ""
+	}
+	return string(b)
+}
+
+func cacheSet(dir, key, data string) error {
+	if !cacheKeyOK(key) {
+		return errors.New("ungueltiger Cache-Key")
+	}
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+	tmp := filepath.Join(dir, key+".json.tmp")
+	if err := os.WriteFile(tmp, []byte(data), 0644); err != nil {
+		return err
+	}
+	return os.Rename(tmp, filepath.Join(dir, key+".json"))
 }
 
 // ---------------------------------------------------------------------------
@@ -320,6 +374,14 @@ func main() {
 		fatal("Konnte Daten nicht laden: " + err.Error())
 	}
 	set := newSettingsStore(filepath.Join(filepath.Dir(dp), "settings.json"))
+	cacheDir := filepath.Join(filepath.Dir(dp), "cache")
+
+	// Schlanker Modus (per Einstellung): WebView2 als Ein-Prozess ohne GPU-Prozess,
+	// V8-Heap gedeckelt. Spart deutlich RAM (Neustart noetig). Per Env ueberschreibbar.
+	if set.get().LeanMode && os.Getenv("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS") == "" {
+		os.Setenv("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
+			"--single-process --disable-gpu --disable-software-rasterizer --js-flags=--max-old-space-size=128")
+	}
 
 	w := webview.NewWithOptions(webview.WebViewOptions{
 		Debug:     false,
@@ -349,6 +411,17 @@ func main() {
 	must(w.Bind("goOpenExternal", func(url string) error { openExternal(url); return nil }))
 	must(w.Bind("goFlash", func() error { flashWindow(hwnd); return nil }))
 	must(w.Bind("goBeep", func() error { messageBeep(); return nil }))
+
+	// --- API-Cache: Stammdaten auf Platte (Sofort-Start + offline) ---
+	must(w.Bind("goCacheGet", func(key string) (string, error) { return cacheGet(cacheDir, key), nil }))
+	must(w.Bind("goCacheSet", func(key, data string) (bool, error) {
+		if err := cacheSet(cacheDir, key, data); err != nil {
+			return false, err
+		}
+		return true, nil
+	}))
+	// --- Schlanker Modus umschalten (wirkt nach Neustart) ---
+	must(w.Bind("goSetLean", func(on bool) (Settings, error) { return set.setLean(on) }))
 
 	// --- Go-Funktionen fuer JavaScript verfuegbar machen (kein HTTP) ---
 

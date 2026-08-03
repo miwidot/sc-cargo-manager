@@ -5,24 +5,38 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SC Cargo Manager</title>
 <style>
+  /* Schriften wie citizenhq.space: Chakra Petch (Display), Sora (Body), Space Mono (Zahlen).
+     WebView2 laedt sie live (App braucht ohnehin Netz fuer die API); Fallback = System-Schrift. */
+  @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Sora:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
   :root{
-    --bg:#05080f; --panel:#111823; --panel2:#0d141d; --line:#1e2a3a;
-    --txt:#c9d6e5; --muted:#6b7d93; --accent:#37c0f6; --accent2:#00d68f;
-    --warn:#ffb020; --danger:#ff5470; --gold:#ffd166;
+    --bg:#071015; --panel:#102129; --panel2:#0a171d; --line:#9ebfc838;
+    --txt:#dce6e8; --muted:#879ba3; --accent:#7cc5d1; --accent2:#72ba91;
+    --warn:#d6a34a; --danger:#ef5454; --gold:#ebc36b;
+    --brand:#d75c57; --brand-bright:#e47a75;
+    --font-body:"Sora","Segoe UI",system-ui,sans-serif;
+    --font-display:"Chakra Petch","Segoe UI",sans-serif;
+    --font-mono:"Space Mono",ui-monospace,monospace;
   }
   *{box-sizing:border-box}
+  /* Typografie-Rollen: Chakra Petch fuer Titel/Labels/Chrome, Space Mono fuer Zahlen */
+  header h1, .card h2, h2, h3, label, th, .tab, .tb-title, .ver, .ship-lbl,
+  .stat-l, .mn-methods-title, .mv-head, .leg-dir, .loop-head .lh-sys, .badge,
+  .best-head, .modal-head h3, .d-name, .deal-name{ font-family:var(--font-display) }
+  .num, .stat-v, .price, .total, .d-price, .d-total, .deal-price, .loop-total,
+  .leg-profit, .buyer .price, .buyer .total, td.num, th.num,
+  input[type=number], #when, #mnWhen{ font-family:var(--font-mono) }
   /* Hintergrund im Stil von citizenhq.space: radialer Blau-Verlauf oben, Scanlines, Vignette */
   body{
     margin:0; color:var(--txt);
-    font-family:"Segoe UI",Roboto,system-ui,sans-serif; font-size:14px;
-    background:#05080f;
-    background-image:linear-gradient(180deg, rgba(5,8,15,.55) 0%, rgba(5,8,15,.72) 45%, rgba(5,8,15,.90) 100%), url("__HERO_BG__");
+    font-family:var(--font-body); font-size:14px;
+    background:#071015;
+    background-image:linear-gradient(180deg, rgba(7,16,21,.55) 0%, rgba(7,16,21,.72) 45%, rgba(7,16,21,.92) 100%), url("__HERO_BG__");
     background-size:cover; background-position:center top; background-attachment:fixed; background-repeat:no-repeat;
     position:relative; overflow-x:hidden; min-height:100vh; padding-top:34px;
   }
   /* eigene Titelleiste (Fenster ist rahmenlos) */
   .titlebar{position:fixed;top:0;left:0;right:0;height:34px;z-index:300;display:flex;align-items:stretch;
-    background:rgba(6,10,20,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);user-select:none}
+    background:rgba(10,23,29,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);user-select:none}
   .tb-drag{flex:1;display:flex;align-items:center;gap:8px;padding:0 12px;min-width:0}
   .tb-ico{color:var(--accent);font-size:12px;transform:rotate(0deg)}
   .tb-title{color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -40,7 +54,7 @@
   }
   header{
     display:flex; align-items:center; gap:12px; padding:14px 22px;
-    border-bottom:1px solid var(--line); background:rgba(7,11,22,.72); backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--line); background:rgba(16,33,41,.72); backdrop-filter:blur(8px);
     position:sticky; top:34px; z-index:5;
   }
   header .logo{
@@ -54,19 +68,19 @@
   .ver{color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.05em;margin-left:2px}
   .gear{background:none;border:1px solid var(--line);color:var(--muted);width:34px;height:34px;border-radius:8px;cursor:pointer;font-size:16px;margin-left:12px;line-height:1}
   .gear:hover{border-color:var(--accent);color:var(--accent)}
-  .update-bar{background:linear-gradient(90deg,rgba(55,192,246,.16),rgba(0,214,143,.16));border-bottom:1px solid var(--accent);color:var(--txt);padding:9px 22px;font-size:13px;display:flex;align-items:center;gap:12px;justify-content:center}
+  .update-bar{background:linear-gradient(90deg,rgba(124,197,209,.16),rgba(114,186,145,.16));border-bottom:1px solid var(--accent);color:var(--txt);padding:9px 22px;font-size:13px;display:flex;align-items:center;gap:12px;justify-content:center}
   .update-bar[hidden]{display:none}
   .update-bar b{color:var(--accent)}
-  .update-bar button{background:linear-gradient(180deg,#37c0f6,#1a9fd4);border:none;color:#04121b;font-weight:700;padding:6px 14px;border-radius:7px;cursor:pointer;font-size:12px}
+  .update-bar button{background:linear-gradient(180deg,#7cc5d1,#4f9aa8);border:none;color:#04121b;font-weight:700;padding:6px 14px;border-radius:7px;cursor:pointer;font-size:12px}
   .update-bar button:hover{filter:brightness(1.08)}
   .ship-box{margin-left:auto;display:flex;align-items:center;gap:9px}
   .ship-lbl{color:var(--accent);font-size:12px;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;font-weight:700}
   .ship-box .combo{width:210px}
-  .ship-box input{padding:7px 10px;font-size:13px;border-color:var(--accent);background:rgba(55,192,246,.10);color:var(--accent)}
+  .ship-box input{padding:7px 10px;font-size:13px;border-color:var(--accent);background:rgba(124,197,209,.10);color:var(--accent)}
   .ship-box input::placeholder{color:var(--accent);opacity:.7}
   .ship-cap{color:var(--accent2);font-size:12px;font-weight:700;white-space:nowrap;min-width:56px}
   @media(max-width:720px){.ship-lbl{display:none}.ship-box .combo{width:150px}}
-  .tabs{display:flex;gap:4px;padding:0 22px;border-bottom:1px solid var(--line);background:rgba(7,11,22,.6);backdrop-filter:blur(8px);position:sticky;top:93px;z-index:4}
+  .tabs{display:flex;gap:4px;padding:0 22px;border-bottom:1px solid var(--line);background:rgba(16,33,41,.6);backdrop-filter:blur(8px);position:sticky;top:93px;z-index:4}
   .tab{background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);padding:12px 18px;cursor:pointer;font-size:13px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;margin-bottom:-1px}
   .tab:hover{color:var(--txt)}
   .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
@@ -75,7 +89,7 @@
   select{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:9px 11px;border-radius:8px;font-size:14px;outline:none;font-family:inherit;cursor:pointer}
   .chk{margin:0;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--txt);text-transform:none;letter-spacing:normal}
   .set-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-  .sc-btn{background:linear-gradient(180deg,#37c0f6,#1a9fd4);border:none;color:#04121b;padding:9px 18px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;letter-spacing:.02em}
+  .sc-btn{background:linear-gradient(180deg,#7cc5d1,#4f9aa8);border:none;color:#04121b;padding:9px 18px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;letter-spacing:.02em}
   .sc-btn:hover{filter:brightness(1.08)}
   .sc-btn:active{filter:brightness(.95)}
   .sc-btn-sec{background:none;border:1px solid var(--line);color:var(--txt);padding:9px 16px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600}
@@ -84,15 +98,18 @@
   .chk input{width:auto}
   /* Rundreise-Karten (roundtrip) — gut lesbar statt dichter Tabelle */
   .loop{border:1px solid var(--line);border-radius:12px;margin-bottom:14px;overflow:hidden;background:var(--panel2)}
-  .loop-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 16px;background:rgba(0,214,143,.08);border-bottom:1px solid var(--line);font-size:13px}
+  .loop-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 16px;background:rgba(114,186,145,.08);border-bottom:1px solid var(--line);font-size:13px}
   .loop-head .lh-sys{color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700;font-size:12px}
-  .loop-total{color:var(--accent2);font-weight:800;font-size:16px;white-space:nowrap}
+  .loop-total{color:var(--accent2);font-weight:800;font-size:16px;white-space:nowrap;font-family:var(--font-mono)}
+  .loop-wrap{margin-bottom:18px}
+  .loop-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px;padding:8px 4px;border-bottom:1px solid var(--line)}
   .leg{display:grid;grid-template-columns:48px 1fr auto;gap:14px;align-items:center;padding:12px 16px}
   .leg + .leg{border-top:1px solid #131c27}
   .leg-dir{font-size:11px;font-weight:800;letter-spacing:.06em;color:var(--muted)}
   .leg.ret .leg-dir{color:var(--accent)}
   .leg-title{font-weight:700}
   .leg-route{color:var(--muted);font-size:12px;margin-top:3px}
+  .leg-stock{color:var(--muted);font-size:11px;margin-top:2px;opacity:.85}
   .leg-route .arrow{color:var(--accent);margin:0 7px;font-weight:700}
   .leg-nums{text-align:right;white-space:nowrap}
   .leg-price{color:var(--txt);font-size:12px}
@@ -106,13 +123,89 @@
   .buy-part{color:var(--warn);font-size:11px}
   .fe{font-size:10px;font-weight:700;color:var(--accent2);white-space:nowrap}
   .fe-mid{font-size:10px;font-weight:700;color:var(--accent);white-space:nowrap}
+  /* --- Routen-Ergebnis-Karten (ABHOLEN / LIEFERN) im CitizenHQ-Stil --- */
+  .rc-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:980px){.rc-grid{grid-template-columns:1fr}}
+  .rcard{border:1px solid var(--line);border-radius:12px;background:var(--panel2)}
+  .rc-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;padding:14px 18px 10px}
+  .rc-kicker{font-family:var(--font-display);font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+  .rc-name{font-family:var(--font-display);font-size:19px;font-weight:700;color:var(--txt);margin-top:2px}
+  .rc-name .ill{font-size:10px;color:var(--warn);border:1px solid var(--warn);border-radius:4px;padding:1px 5px;margin-left:8px;vertical-align:middle;letter-spacing:.06em}
+  .rc-hr{text-align:right;white-space:nowrap}
+  .rc-perscu{font-family:var(--font-mono);font-size:13px;color:var(--accent)}
+  .rc-age{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-top:2px}
+  .rc-age.old{color:var(--danger)}
+  .rc-body{display:grid;grid-template-columns:1fr 64px 1fr;gap:0;align-items:stretch;padding:0 18px}
+  @media(max-width:720px){.rc-body{grid-template-columns:1fr;gap:12px}.rc-mid{flex-direction:row;padding:4px 0}}
+  .rc-box{border:1px solid var(--line);border-radius:10px;padding:13px 15px;background:rgba(16,33,41,.5)}
+  .rc-tag{font-family:var(--font-display);font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;margin-bottom:7px}
+  .rc-tag.pick{color:var(--warn)}
+  .rc-tag.drop{color:var(--accent)}
+  .rc-loc{font-weight:600;font-size:15px;color:var(--txt)}
+  .rc-sys{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:1px 0 8px}
+  .rc-line{font-size:12.5px;color:var(--txt);margin-top:7px}
+  .rc-line b{font-family:var(--font-mono);color:var(--accent)}
+  .rc-meta{font-size:11px;color:var(--muted);margin-top:3px}
+  .rc-mid{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--muted)}
+  .rc-mid .ar{color:var(--accent);font-size:20px;font-weight:700}
+  .rc-jump{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--warn);text-align:center;line-height:1.2}
+  .rc-dist{font-family:var(--font-mono);font-size:11px;color:var(--muted)}
+  .rc-foot{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;padding:12px 18px;border-top:1px solid var(--line);margin-top:14px;font-size:12.5px;color:var(--muted)}
+  .rc-foot .g{color:var(--gold);font-weight:700;font-family:var(--font-mono)}
+  .rc-foot .v{font-family:var(--font-mono);color:var(--txt)}
+  .rc-cta{margin-left:auto;color:var(--accent);font-weight:600;white-space:nowrap}
+  /* Pill-Badges fuer die Karten */
+  .pill{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.04em;padding:2px 8px;border-radius:20px;border:1px solid;white-space:nowrap;text-transform:uppercase;font-family:var(--font-display)}
+  .pill-go{color:var(--accent2);border-color:rgba(114,186,145,.5)}
+  .pill-lift{color:var(--accent);border-color:rgba(124,197,209,.5)}
+  .pill-hand{color:var(--warn);border-color:rgba(214,163,74,.5)}
   .fe-no{font-size:10px;font-weight:700;color:var(--warn);white-space:nowrap}
   select:focus{border-color:var(--accent)}
   .wrap{width:100%;max-width:1500px;margin:0 auto;padding:22px;display:grid;gap:22px}
   .grid{display:grid;grid-template-columns:1fr 1fr;gap:22px}
   @media(max-width:840px){.grid{grid-template-columns:1fr}}
-  .card{background:rgba(15,23,37,.74);backdrop-filter:blur(6px);border:1px solid var(--line);border-radius:12px;padding:18px}
+  .card{background:rgba(16,33,41,.72);backdrop-filter:blur(6px);border:1px solid var(--line);border-radius:12px;padding:18px}
   .card h2{margin:0 0 14px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:700}
+  /* --- Seiten-Kopf im CitizenHQ-Stil: Kicker + grosser Titel + Untertitel --- */
+  .page-head{margin:2px 0 20px}
+  .page-kicker{font-family:var(--font-display);font-size:11px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--accent);opacity:.85}
+  .page-title{font-family:var(--font-display);font-size:34px;font-weight:700;letter-spacing:.01em;margin:6px 0 4px;color:var(--txt);line-height:1.05}
+  .page-title .dot{color:var(--accent)}
+  .page-sub{color:var(--ink-soft,#a9bbc1);font-size:14px;margin:0}
+  /* --- nummerierter Sektions-Kopf mit Trennlinie --- */
+  .sec-head{display:flex;align-items:center;gap:10px;margin:22px 0 14px;color:var(--muted);
+    font-family:var(--font-display);font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase}
+  .sec-head .n{color:var(--accent)}
+  .sec-head .opt{color:var(--muted);opacity:.6;letter-spacing:.08em}
+  .sec-head::after{content:"";flex:1;height:1px;background:var(--line)}
+  .sec-head:first-child{margin-top:2px}
+  /* --- Info-Panels (Was der Rechner kann / Was noch fehlt) --- */
+  .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:6px}
+  @media(max-width:840px){.info-grid{grid-template-columns:1fr}}
+  .info-box{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .info-box h4{margin:0 0 8px;font-family:var(--font-display);font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+  .info-box p{margin:0 0 8px;font-size:12.5px;color:var(--ink-soft,#a9bbc1);line-height:1.5}
+  .info-box p:last-child{margin-bottom:0}
+  .info-box b{color:var(--txt);font-weight:600}
+  /* --- coral Aktions-Button (primaere CTA wie "Routen finden") --- */
+  .sc-go{background:linear-gradient(180deg,var(--brand-bright),var(--brand));border:none;color:#1a0a0a;
+    font-family:var(--font-display);font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+    padding:11px 22px;border-radius:8px;cursor:pointer;font-size:13px}
+  .sc-go:hover{filter:brightness(1.08)}
+  .sc-go:active{filter:brightness(.95)}
+  /* --- Ergebnis-Zeile ("61 Routen · für 100 SCU") --- */
+  .result-head{font-family:var(--font-display);font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:18px 0 12px}
+  /* --- Feld-Tooltips (Info-Kreis wie im Web-Routen-Manager) --- */
+  .tip{position:relative;display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;
+    margin-left:6px;border:1px solid var(--muted);border-radius:50%;color:var(--muted);
+    font-family:var(--font-mono);font-size:9px;line-height:1;cursor:help;flex:none;vertical-align:middle}
+  .tip::before{content:"i"}
+  .tip:hover{border-color:var(--accent);color:var(--accent)}
+  .tip .tt{display:none;position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);
+    width:270px;max-width:70vw;background:var(--panel);border:1px solid var(--line-strong,#9ebfc86b);border-radius:8px;
+    padding:10px 12px;font-family:var(--font-body);font-size:12px;font-weight:400;letter-spacing:normal;
+    text-transform:none;color:var(--ink-soft,#a9bbc1);line-height:1.5;z-index:80;box-shadow:0 12px 30px rgba(0,0,0,.55);white-space:normal}
+  .tip:hover .tt{display:block}
   label{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin:0 0 5px}
   .field{margin-bottom:13px}
   .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
@@ -120,7 +213,7 @@
     width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);
     padding:9px 11px;border-radius:8px;font-size:14px;outline:none;font-family:inherit;
   }
-  input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(55,192,246,.12)}
+  input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(124,197,209,.12)}
   input::placeholder{color:#455467}
   /* Spin-Pfeile der Zahlenfelder ausblenden (nur Tastatur-Eingabe) */
   input[type=number]::-webkit-inner-spin-button,
@@ -136,9 +229,9 @@
   .hint.cap-ok{color:var(--accent2);font-weight:600}
   .hint.cap-over{color:var(--danger);font-weight:700}
   button.primary{
-    width:100%;margin-top:6px;background:linear-gradient(180deg,#37c0f6,#1a9fd4);
-    border:none;color:#04121b;font-weight:700;padding:11px;border-radius:8px;cursor:pointer;
-    letter-spacing:.06em;text-transform:uppercase;font-size:13px;
+    width:100%;margin-top:6px;background:linear-gradient(180deg,var(--brand-bright),var(--brand));
+    border:none;color:#1a0a0a;font-weight:700;padding:11px;border-radius:8px;cursor:pointer;
+    font-family:var(--font-display);letter-spacing:.08em;text-transform:uppercase;font-size:13px;
   }
   button.primary:hover{filter:brightness(1.08)}
   button.primary:disabled{opacity:.45;cursor:not-allowed}
@@ -152,7 +245,7 @@
     display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:10px 12px;border-radius:9px;
     background:var(--panel2);border:1px solid var(--line);margin-bottom:8px;
   }
-  .buyer.top{border-color:var(--accent2);box-shadow:0 0 0 1px rgba(0,214,143,.25) inset}
+  .buyer.top{border-color:var(--accent2);box-shadow:0 0 0 1px rgba(114,186,145,.25) inset}
   .buyer .name{font-weight:600}
   .buyer .sys{color:var(--muted);font-size:12px}
   .buyer .price{text-align:right;color:var(--gold);font-weight:700;white-space:nowrap}
@@ -162,14 +255,14 @@
   .demand.warn{color:var(--warn)}
   .demand.na{color:var(--muted);font-weight:400}
   .stock{color:var(--muted);font-weight:400}
-  .badge{display:inline-block;font-size:10px;padding:1px 7px;border-radius:20px;background:rgba(0,214,143,.15);color:var(--accent2);margin-left:6px;letter-spacing:.05em}
-  .profit{margin-top:6px;padding:10px 12px;border-radius:9px;background:rgba(0,214,143,.07);border:1px solid var(--line);font-size:13px}
+  .badge{display:inline-block;font-size:10px;padding:1px 7px;border-radius:20px;background:rgba(114,186,145,.15);color:var(--accent2);margin-left:6px;letter-spacing:.05em}
+  .profit{margin-top:6px;padding:10px 12px;border-radius:9px;background:rgba(114,186,145,.07);border:1px solid var(--line);font-size:13px}
   .profit .val{font-weight:800;font-size:16px}
   .pos{color:var(--accent2)} .neg{color:var(--danger)}
   .spin{color:var(--muted);font-size:13px}
 
   /* Split-Load */
-  .split-box{border:1px solid var(--accent);border-radius:12px;padding:14px 16px;margin-bottom:16px;background:rgba(55,192,246,.06)}
+  .split-box{border:1px solid var(--accent);border-radius:12px;padding:14px 16px;margin-bottom:16px;background:rgba(124,197,209,.06)}
   .split-head{font-size:14px;margin-bottom:10px;color:var(--txt)}
   .split-head b{font-size:15px}
   .split-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:7px 0;border-top:1px solid #131c27;font-size:13px}
@@ -188,6 +281,17 @@
   .spark{vertical-align:middle}
   .chg-up{color:var(--accent2)}
   .chg-down{color:var(--danger)}
+  /* Markt-Movers */
+  .mv-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+  .mv-box{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px}
+  .mv-head{font-size:12px;font-weight:700;letter-spacing:.4px;color:var(--txt);margin-bottom:8px}
+  .mv-head .t-sys{font-weight:400}
+  .deal{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)}
+  .deal:last-child{border-bottom:none}
+  .deal-info{min-width:0}
+  .deal-name{display:block;font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .deal-num{text-align:right;white-space:nowrap;font-size:12px}
+  .deal-price{font-weight:700}
 
   /* eigenes Dropdown (ersetzt natives datalist -> volle Theme-Kontrolle) */
   .combo{position:relative}
@@ -201,7 +305,7 @@
     padding:9px 13px;cursor:pointer;font-size:13px;border-bottom:1px solid #131c27;
   }
   .combo-item:last-child{border-bottom:none}
-  .combo-item:hover,.combo-item.active{background:rgba(55,192,246,.15)}
+  .combo-item:hover,.combo-item.active{background:rgba(124,197,209,.15)}
   .combo-item .ci-name{font-weight:500}
   .combo-item .ci-lbl{color:var(--muted);font-size:12px;white-space:nowrap}
   .combo-empty{padding:10px 13px;color:var(--muted);font-size:12px}
@@ -213,7 +317,7 @@
   table{width:100%;border-collapse:collapse}
   th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700;padding:8px 10px;border-bottom:1px solid var(--line)}
   td{padding:9px 10px;border-bottom:1px solid #131c27;font-size:13px;vertical-align:middle}
-  tbody tr:hover{background:#0d151f}
+  tbody tr:hover{background:#102129}
   .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
   td.has-calc{cursor:help}
   td.has-calc:hover{color:var(--accent)}
@@ -224,7 +328,7 @@
   .sellbtn{background:none;border:1px solid var(--line);color:var(--accent);border-radius:6px;padding:4px 9px;cursor:pointer;font-size:12px}
   .sellbtn:hover{border-color:var(--accent)}
   .soldbtn{background:none;border:1px solid var(--accent2);color:var(--accent2);border-radius:6px;padding:4px 9px;cursor:pointer;font-size:12px;white-space:nowrap}
-  .soldbtn:hover{background:rgba(0,214,143,.12)}
+  .soldbtn:hover{background:rgba(114,186,145,.12)}
   .unsoldbtn{background:none;border:1px solid var(--line);color:var(--muted);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:12px}
   .unsoldbtn:hover{border-color:var(--accent);color:var(--accent)}
   .alarmbtn{background:none;border:1px solid var(--line);color:var(--muted);border-radius:6px;padding:4px 7px;cursor:pointer;line-height:0;vertical-align:middle}
@@ -232,8 +336,8 @@
   .alarmbtn.on{color:var(--warn);border-color:var(--warn);background:rgba(255,176,32,.12)}
   .sold-badge{color:var(--accent2);font-weight:600;font-size:12px;white-space:nowrap}
   .ore-tag{font-size:10px;font-weight:700;color:var(--amber,#ff9e3d);border:1px solid #ff9e3d55;border-radius:20px;padding:1px 7px;margin-left:6px;vertical-align:middle}
-  .refbtn{background:rgba(55,192,246,.08);border:1px solid var(--line);color:var(--accent);border-radius:6px;padding:4px 9px;cursor:pointer;font-size:12px;white-space:nowrap}
-  .refbtn:hover{background:rgba(55,192,246,.16);border-color:var(--accent)}
+  .refbtn{background:rgba(124,197,209,.08);border:1px solid var(--line);color:var(--accent);border-radius:6px;padding:4px 9px;cursor:pointer;font-size:12px;white-space:nowrap}
+  .refbtn:hover{background:rgba(124,197,209,.16);border-color:var(--accent)}
   .locbtn{background:none;border:none;color:var(--muted);cursor:pointer;padding:2px 3px;line-height:0;vertical-align:middle;opacity:.5}
   tr:hover .locbtn{opacity:1}
   .locbtn:hover{color:var(--accent)}
@@ -270,22 +374,22 @@
   .modal-filters{display:flex;gap:8px;flex-wrap:wrap;padding:14px 20px;border-bottom:1px solid var(--line)}
   .chip{background:var(--panel2);border:1px solid var(--line);color:var(--muted);padding:6px 13px;border-radius:20px;cursor:pointer;font-size:12px;font-weight:600}
   .chip:hover{border-color:var(--accent)}
-  .chip.active{background:rgba(55,192,246,.16);border-color:var(--accent);color:var(--accent)}
+  .chip.active{background:rgba(124,197,209,.16);border-color:var(--accent);color:var(--accent)}
   .modal-age{display:flex;align-items:center;gap:8px;padding:10px 20px;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted)}
   .modal-age select{width:auto;padding:5px 8px;font-size:12px}
   .modal-body{padding:14px 20px;overflow-y:auto}
   .dest{display:flex;align-items:center;gap:14px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;margin-bottom:10px;background:var(--panel2)}
-  .dest.best{border-color:var(--accent2);box-shadow:0 0 0 1px rgba(0,214,143,.2) inset}
-  .dest.chosen{border-color:var(--gold);box-shadow:0 0 0 1px rgba(255,209,102,.3) inset}
+  .dest.best{border-color:var(--accent2);box-shadow:0 0 0 1px rgba(114,186,145,.2) inset}
+  .dest.chosen{border-color:var(--gold);box-shadow:0 0 0 1px rgba(235,195,107,.3) inset}
   .dest .d-info{flex:1;min-width:0}
   .dest .d-name{font-weight:600}
   .dest .d-sys{color:var(--muted);font-size:12px}
   .dest .d-num{text-align:right;white-space:nowrap}
   .dest .d-price{color:var(--gold);font-weight:700}
   .dest .d-total{color:var(--accent2);font-size:12px}
-  .pickbtn{background:linear-gradient(180deg,#37c0f6,#1a9fd4);border:none;color:#04121b;font-weight:700;padding:8px 14px;border-radius:8px;cursor:pointer;white-space:nowrap;font-size:12px;flex:none}
+  .pickbtn{background:linear-gradient(180deg,#7cc5d1,#4f9aa8);border:none;color:#04121b;font-weight:700;padding:8px 14px;border-radius:8px;cursor:pointer;white-space:nowrap;font-size:12px;flex:none}
   .pickbtn:hover{filter:brightness(1.08)}
-  .pickbtn.is-chosen{background:linear-gradient(180deg,#ffd166,#e0a92e)}
+  .pickbtn.is-chosen{background:linear-gradient(180deg,#ebc36b,#e0a92e)}
 </style>
 </head>
 <body>
@@ -301,6 +405,7 @@
   </div>
 </div>
 <div class="update-bar" id="updateBar" hidden></div>
+<div id="offlineBar" style="display:none;background:rgba(239,84,84,.14);border-bottom:1px solid var(--danger);color:var(--txt);padding:7px 22px;font-size:12.5px;text-align:center">Offline — citizenhq.space nicht erreichbar. Angezeigt werden zwischengespeicherte Daten.</div>
 <header>
   <div class="logo"><span>SC</span></div>
   <h1>Cargo&nbsp;Manager</h1>
@@ -324,6 +429,11 @@
 
 <div class="wrap">
  <div class="tab-panel" id="tab-log">
+  <div class="page-head">
+    <div class="page-kicker">▸ Cargo-Verwaltung</div>
+    <h1 class="page-title">Cargo Log<span class="dot">.</span></h1>
+    <p class="page-sub">Ladungen erfassen, Bestand behalten und den besten Verkaufsplatz live finden.</p>
+  </div>
   <div class="grid">
     <!-- Eingabe -->
     <div class="card">
@@ -398,8 +508,13 @@
  </div><!-- /tab-log -->
 
  <div class="tab-panel" id="tab-buyer" hidden>
+  <div class="page-head">
+    <div class="page-kicker">▸ Verkauf</div>
+    <h1 class="page-title">Best Buyer<span class="dot">.</span></h1>
+    <p class="page-sub">Bester Abnehmer für eine Ware &amp; Menge — mit optimaler Aufteilung auf mehrere Terminals.</p>
+  </div>
   <div class="card">
-    <h2>Best Buyer — bester Verkaufsplatz nachschlagen</h2>
+    <h2>Nachschlagen</h2>
     <div class="row">
       <div class="field">
         <label>Ware / Commodity</label>
@@ -427,8 +542,13 @@
  </div><!-- /tab-buyer -->
 
  <div class="tab-panel" id="tab-routes" hidden>
+  <div class="page-head">
+    <div class="page-kicker">▸ Profit-Rechner</div>
+    <h1 class="page-title">Trader Routes<span class="dot">.</span></h1>
+    <p class="page-sub">Beste Handelsrouten für dein Schiff &amp; Budget — mit Bestand, Bedarf und optionaler Rückroute.</p>
+  </div>
   <div class="card">
-    <h2>Profit-Routen — günstig kaufen, teuer verkaufen</h2>
+    <div class="sec-head"><span class="n">1</span> Schiff &amp; Ladung</div>
     <div class="row">
       <div class="field">
         <label>Ladekapazität (SCU)</label>
@@ -439,8 +559,15 @@
         <label>Budget (aUEC, optional)</label>
         <input type="number" id="rtBudget" min="0" step="1000" placeholder="leer = kein Limit">
       </div>
+    </div>
+    <div class="sec-head"><span class="n">2</span> Route eingrenzen <span class="opt">(optional)</span></div>
+    <div class="row">
       <div class="field">
-        <label>Start-System</label>
+        <label>Ware<span class="tip"><span class="tt">Ohne Auswahl sucht der Rechner die beste Route je Ware über alle Waren. Wählst du eine, zeigt er stattdessen alle lohnenden Kauf-Verkauf-Paarungen dieser einen Ware — die Frage „ich will Titanium fahren, wo hole ich es und wohin damit?"</span></span></label>
+        <div class="combo"><input id="rtCommodity" placeholder="Alle Waren — tippen z.B. Neon" autocomplete="off"></div>
+      </div>
+      <div class="field">
+        <label>Start-System<span class="tip"><span class="tt">Wo du gerade bist. Es wird nur an Orten in diesem System eingekauft. Ziel offen lassen heißt: verkauft wird, wo es am meisten bringt — auch in einem anderen System, dann steht „Cross-System · Sprung nötig" an der Route.</span></span></label>
         <select id="rtOrigin">
           <option value="">Alle</option>
           <option value="Stanton">Stanton</option>
@@ -449,7 +576,7 @@
         </select>
       </div>
       <div class="field">
-        <label>Ziel-System</label>
+        <label>Ziel-System<span class="tip"><span class="tt">Wohin du ohnehin willst. Verkauft wird dann nur dort. Sinnvoll, wenn die Fahrt feststeht und du nur wissen willst, was sich mitzunehmen lohnt.</span></span></label>
         <select id="rtDest">
           <option value="">Alle</option>
           <option value="Stanton">Stanton</option>
@@ -458,47 +585,68 @@
         </select>
       </div>
       <div class="field">
-        <label>Start-Terminal (optional)</label>
-        <div class="combo"><input id="rtOriginTerm" placeholder="tippen… z.B. Rustville" autocomplete="off"></div>
-        <div class="hint">Routen nur ab diesem Terminal</div>
+        <label>Start-Terminal<span class="tip"><span class="tt">Genau dieser eine Laden als Kaufort — schärfer als das System. Für „ich stehe hier, was nehme ich mit?"</span></span></label>
+        <div class="combo"><input id="rtOriginTerm" placeholder="Alle — tippen z.B. Rustville" autocomplete="off"></div>
       </div>
       <div class="field">
-        <label>Ziel-Terminal (optional)</label>
-        <div class="combo"><input id="rtDestTerm" placeholder="tippen… z.B. Admin - ARC-L1" autocomplete="off"></div>
-        <div class="hint">Routen nur zu diesem Terminal</div>
+        <label>Ziel-Terminal<span class="tip"><span class="tt">Genau dieser eine Laden als Verkaufsort. Für „ich fliege sowieso dorthin, was lohnt sich?"</span></span></label>
+        <div class="combo"><input id="rtDestTerm" placeholder="Alle — tippen z.B. Admin - ARC-L1" autocomplete="off"></div>
       </div>
+    </div>
+    <div class="sec-head"><span class="n">3</span> Sortierung &amp; Optionen</div>
+    <div class="row">
       <div class="field">
-        <label>Sortierung</label>
+        <label>Sortierung<span class="tip"><span class="tt">Gewinn = meiste aUEC je Fuhre. ROI = meiste aUEC je eingesetztem aUEC (wichtig bei knappem Budget). Marge/SCU = Gewinn je Kiste. Gewinn/Gm = Gewinn im Verhältnis zur Flugstrecke (mit 10 Gm Grundaufwand je Fuhre). Frische = zuerst die Routen mit der jüngsten Meldung.</span></span></label>
         <select id="rtSort">
           <option value="profit">Gewinn</option>
           <option value="roi">ROI %</option>
           <option value="margin">Marge / SCU</option>
           <option value="dist">Distanz (nah zuerst)</option>
+          <option value="pergm">Gewinn / Gm</option>
+          <option value="fresh">Frische (neu zuerst)</option>
         </select>
       </div>
       <div class="field">
-        <label>Daten nicht älter als</label>
+        <label>Daten nicht älter als<span class="tip"><span class="tt">Alle Preise stammen aus Spieler-Meldungen und altern. Diese Auswahl wirft Orte raus, deren Meldung älter ist — der Rechner weicht dann auf den nächsten Ort mit frischer Meldung aus, statt die Ware ganz wegzulassen. Das Alter steht an jedem Bein der Route.</span></span></label>
         <select id="rtAge"></select>
       </div>
-    </div>
-    <div class="field" style="display:flex;flex-wrap:wrap;align-items:center;gap:18px">
-      <label class="chk"><input type="checkbox" id="rtAuto">Volle Ladung annehmen — Bestand/Bedarf ignorieren</label>
-      <label class="chk"><input type="checkbox" id="rtRound">Rundtrip — Rückroute zum Start matchen</label>
-      <label class="chk">Laden:&nbsp;
-        <select id="rtLoadMode" style="width:auto">
-          <option value="">Egal (auch Handladen)</option>
-          <option value="freight">Nur mit Fracht-Aufzug</option>
-          <option value="auto">Nur mit Auto-Load (ATC lädt)</option>
+      <div class="field">
+        <label>Mindestbestand vor Ort (SCU)<span class="tip"><span class="tt">Blendet Orte aus, die zu wenig Vorrat bzw. Bedarf melden — sonst steht die 600-SCU-Fuhre vor 12 SCU im Regal. Mit „Nachfrage ignorieren" gilt die Schwelle nur für den Kaufort.</span></span></label>
+        <input type="number" id="rtMinStock" min="0" step="10" placeholder="egal">
+      </div>
+      <div class="field">
+        <label>Schmuggelware<span class="tip"><span class="tt">18 von 204 Waren sind im Spiel illegal (Drogen, Sklaven, Diebesgut). Sie zahlen gut, aber bei einem Scan drohen Bußgeld, Kopfgeld und Gefängnis — und die großen Handelsposten kaufen sie gar nicht erst an. Hier bestimmst du, ob solche Waren überhaupt vorgeschlagen werden.</span></span></label>
+        <select id="rtIllegal">
+          <option value="">Egal — auch illegale Waren</option>
+          <option value="hide">Keine Schmuggelware</option>
+          <option value="only">Nur Schmuggelware</option>
         </select>
-      </label>
+      </div>
+      <div class="field">
+        <label>Größte Box, die ich laden kann (SCU)<span class="tip"><span class="tt">Fracht gibt es nur in festen Kisten (1 bis 32 SCU), und jeder Laden führt nur bestimmte Größen. Bietet er ausschließlich 32er-Kisten, kann ein kleines Schiff dort nicht laden. Diese Auswahl blendet solche Kauforte aus. Im Zweifel großzügig wählen.</span></span></label>
+        <input type="number" id="rtMaxBox" min="0" step="1" placeholder="egal — jede Boxgröße">
+      </div>
     </div>
-    <div id="rtResults"><div class="best-empty">Lädt Routen…</div></div>
+    <div class="sec-head">Routenoptionen</div>
+    <div class="field" style="display:flex;flex-wrap:wrap;align-items:center;gap:20px;margin-top:2px">
+      <label class="chk"><input type="checkbox" id="rtAuto">Nachfrage ignorieren<span class="tip"><span class="tt">Bezieht auch Zielorte ohne gemeldeten Bedarf ein. UEX kennt für viele Läden keine Bedarfsmenge; ohne diese Option fallen sie aus der Suche. Mit ihr werden sie berücksichtigt — der Bedarf ist dann aber unbekannt, nicht garantiert.</span></span></label>
+      <label class="chk"><input type="checkbox" id="rtAutoLoad">Nur Auto-Load-Frachtdecks<span class="tip"><span class="tt">Blendet Terminals aus, die nur einen Frachtaufzug besitzen. Auto-Load heißt: Die Fracht wird per ATC ins Schiff geladen. Ein bloßer Frachtaufzug bedeutet Handbeladung jeder Kiste.</span></span></label>
+      <label class="chk"><input type="checkbox" id="rtRound">Rundtrip — Rückroute zum Start matchen<span class="tip"><span class="tt">Sucht zusätzlich die beste Fuhre zurück: gekauft am Verkaufsort, verkauft wieder im Startsystem. Damit fliegst du nicht leer heim. Sortiert wird nach dem Gewinn beider Strecken zusammen.</span></span></label>
+      <label class="chk"><input type="checkbox" id="rtOnward">Weiterverkauf ab Verkaufsort<span class="tip"><span class="tt">Was du am Zielort gleich wieder einladen kannst, statt leer weiterzufliegen. Anders als der Rundtrip führt das nicht zum Start zurück, sondern weiter.</span></span></label>
+      <button type="button" id="rtGo" class="sc-go" style="margin-left:auto">Routen finden</button>
+    </div>
   </div>
+  <div id="rtResults"><div class="best-empty">Lädt Routen…</div></div>
  </div><!-- /tab-routes -->
 
  <div class="tab-panel" id="tab-market" hidden>
+  <div class="page-head">
+    <div class="page-kicker">▸ Marktdaten</div>
+    <h1 class="page-title">Markt<span class="dot">.</span></h1>
+    <p class="page-sub">Bewegungen, Trends und auffällige Preise — wo teuer verkaufen, wo günstig kaufen.</p>
+  </div>
   <div class="card">
-    <h2>Markt — Bewegungen &amp; Trends</h2>
+    <h2>Bewegungen &amp; Trends</h2>
     <div class="row">
       <div class="field">
         <label>Sortierung</label>
@@ -519,11 +667,18 @@
         </select>
       </div>
     </div>
+    <div id="mktMovers"></div>
+    <h3 style="margin:20px 0 10px;color:var(--muted);font-size:13px;letter-spacing:.5px">ALLE WAREN</h3>
     <div id="mktResults"><div class="best-empty">Lädt Marktdaten…</div></div>
   </div>
  </div><!-- /tab-market -->
 
  <div class="tab-panel" id="tab-mining" hidden>
+  <div class="page-head">
+    <div class="page-kicker">▸ Bergbau</div>
+    <h1 class="page-title">Mining<span class="dot">.</span></h1>
+    <p class="page-sub">Roherz erfassen wie Cargo — mit Lagerplatz, Refined-Wert und bester Raffinerie.</p>
+  </div>
   <div class="grid">
     <!-- Roherz erfassen -->
     <div class="card">
@@ -632,6 +787,11 @@
         Mit Windows starten (Autostart)
       </label>
       <div class="hint" style="margin:-8px 0 18px">Startet das Programm automatisch beim Anmelden — nur für dich, ohne Admin-Rechte (HKCU Run-Key).</div>
+      <label class="chk" style="margin-bottom:14px">
+        <input type="checkbox" id="optLean">
+        Schlanker Modus (weniger RAM)
+      </label>
+      <div class="hint" style="margin:-8px 0 18px">Startet WebView2 als Ein-Prozess ohne GPU-Prozess — spart deutlich Arbeitsspeicher. <b>Neustart nötig.</b> Bei seltenen Darstellungsproblemen wieder abschalten.</div>
       <div class="set-row">
         <button type="button" id="setCheckUpd" class="sc-btn-sec">Nach Updates suchen</button>
         <span id="setUpdMsg" class="hint" style="margin:0"></span>
@@ -785,19 +945,37 @@ function nowLocal(){
 }
 $("#when").value = nowLocal();
 
-async function loadCommodities(){
+// Verbindungsanzeige: online (gruen) / offline aus Cache (rot)
+let isOnline = null;
+function setOnline(on){
+  if(on===isOnline) return; isOnline = on;
+  const c = $("#conn"); if(!c) return;
+  c.textContent = on ? "citizenhq: online" : "citizenhq: offline · Cache";
+  c.style.color = on ? "var(--accent2)" : "var(--danger)";
+  const b = $("#offlineBar"); if(b) b.style.display = on ? "none" : "block";
+}
+// withCache: Stammdaten sofort aus dem Platten-Cache anzeigen, dann per Netz
+// auffrischen und zurueckschreiben. use(data,fromCache) muss idempotent sein.
+async function withCache(key, url, use){
+  if(window.goCacheGet){
+    try{ const c = await window.goCacheGet(key); if(c){ use(JSON.parse(c), true); } }catch(_){}
+  }
   try{
-    const r = await fetch(API + "/trade/commodity-list");
-    commodities = await r.json();
+    const txt = await fetch(url).then(r=>r.text());
+    const data = JSON.parse(txt);
+    use(data, false);
+    if(window.goCacheSet) window.goCacheSet(key, txt).catch(()=>{});
+    setOnline(true);
+    return data;
+  }catch(e){ setOnline(false); return null; }
+}
+
+async function loadCommodities(){
+  await withCache("commodities", API + "/trade/commodity-list", (list)=>{
+    commodities = Array.isArray(list)?list:[];
     nameToId = new Map(commodities.map(c=>[c.name.toLowerCase(), c.id]));
     $("#matHint").textContent = commodities.length + " Waren geladen — Name tippen und aus Liste waehlen.";
-    $("#conn").textContent = "citizenhq: online";
-    $("#conn").style.color = "var(--accent2)";
-  }catch(e){
-    $("#matHint").textContent = "Warenliste konnte nicht geladen werden.";
-    $("#conn").textContent = "citizenhq: offline";
-    $("#conn").style.color = "var(--danger)";
-  }
+  });
 }
 
 let stations = []; // [{value,label}]
@@ -807,49 +985,52 @@ function normLoc(n){
     .replace(/^admin - /,"").replace(/^platinum bay - /,"")
     .replace(/ station$/,"").trim();
 }
+function mergeLocations(locs, terms){
+  // Zwei Quellen zusammenfuehren, damit ALLE Handelsplaetze auftauchen:
+  //  /stations = grosse Hubs; /trade/terminals-list = zusaetzlich Outposts/Mining
+  //  (v.a. Pyro, z.B. Rustville) die NICHT in /stations sind.
+  const seen = new Set(), out = [];
+  (Array.isArray(locs)?locs:[]).forEach(l=>{
+    const v = l.location||""; if(!v) return;
+    seen.add(normLoc(v));
+    out.push({ value:v, label:`${l.system||''}${l.terminals?` · ${l.terminals} Term.`:''}` });
+  });
+  (Array.isArray(terms)?terms:[]).forEach(t=>{
+    const v = t.name||""; if(!v) return;
+    const k = normLoc(v);
+    if(seen.has(k)) return;
+    seen.add(k);
+    out.push({ value:v, label:`${t.system||''} · Terminal` });
+  });
+  return out.sort((a,b)=> a.value.localeCompare(b.value));
+}
 async function loadLocations(){
+  // Cache haelt die bereits zusammengefuehrte Liste
+  if(window.goCacheGet){
+    try{ const c = await window.goCacheGet("locations"); if(c){ stations = JSON.parse(c); } }catch(_){}
+  }
   try{
-    // Zwei Quellen zusammenfuehren, damit ALLE Handelsplaetze auftauchen:
-    //  /stations         = grosse Hubs (Area 18, Lorville, Lagrange-Stationen …)
-    //  /trade/terminals-list = zusaetzlich Outposts/Mining/Salvage (v.a. Pyro, z.B.
-    //                          Rustville, Shepherd's Rest) die NICHT in /stations sind
     const [locs, terms] = await Promise.all([
       fetch(API + "/stations").then(r=>r.json()).catch(()=>[]),
       fetch(API + "/trade/terminals-list").then(r=>r.json()).catch(()=>[])
     ]);
-    const seen = new Set();
-    const out = [];
-    (Array.isArray(locs)?locs:[]).forEach(l=>{
-      const v = l.location||""; if(!v) return;
-      seen.add(normLoc(v));
-      out.push({ value:v, label:`${l.system||''}${l.terminals?` · ${l.terminals} Term.`:''}` });
-    });
-    (Array.isArray(terms)?terms:[]).forEach(t=>{
-      const v = t.name||""; if(!v) return;
-      const k = normLoc(v);
-      if(seen.has(k)) return;          // schon durch eine /stations-Location abgedeckt
-      seen.add(k);
-      out.push({ value:v, label:`${t.system||''} · Terminal` });
-    });
-    stations = out.sort((a,b)=> a.value.localeCompare(b.value));
-  }catch(e){ /* Ort bleibt freies Textfeld */ }
+    stations = mergeLocations(locs, terms);
+    if(window.goCacheSet) window.goCacheSet("locations", JSON.stringify(stations)).catch(()=>{});
+    setOnline(true);
+  }catch(e){ setOnline(false); }
 }
 
 let ships = [];                 // [{value,label,cargo}]
 let shipByName = new Map();      // lowercase name -> cargo (SCU)
 async function loadShips(){
-  try{
-    const r = await fetch(API + "/ships");
-    const list = await r.json();
+  await withCache("ships", API + "/ships", (list)=>{
+    list = Array.isArray(list)?list:[];
     ships = list
       .filter(s=> (s.cargo||0) > 0)   // nur Schiffe mit Frachtkapazitaet zeigen
-      .map(s=>({
-        value: s.name||"",
-        label: `${s.cargo} SCU · ${s.manufacturerCode||''}`,
-        cargo: s.cargo
-      })).sort((a,b)=> a.value.localeCompare(b.value));
+      .map(s=>({ value: s.name||"", label: `${s.cargo} SCU · ${s.manufacturerCode||''}`, cargo: s.cargo }))
+      .sort((a,b)=> a.value.localeCompare(b.value));
     shipByName = new Map(list.map(s=>[(s.name||"").toLowerCase(), s.cargo||0]));
-  }catch(e){ /* Schiff bleibt freies Textfeld */ }
+  });
 }
 
 // makeCombo: eigenes, theme-konformes Autocomplete-Dropdown fuer ein Input.
@@ -939,10 +1120,10 @@ function updateCapacity(){
 // per terminalId in Abnehmer-Listen gejoint.
 let termById = {};
 async function loadTerminals(){
-  try{
-    const list = await fetch(`${API}/trade/terminals-list`).then(r=>r.json());
+  await withCache("terminals", `${API}/trade/terminals-list`, (list)=>{
+    termById = {};
     (Array.isArray(list)?list:[]).forEach(t=> termById[t.id]=t);
-  }catch(_){}
+  });
 }
 // Terminal-Name (exakt, case-insensitiv) -> ID; leer/unbekannt -> null
 function termIdByName(name){
@@ -1058,16 +1239,30 @@ function renderStats(items){
 }
 
 // Geschaetzter Wert der offenen Ladung zum aktuellen Bestpreis (live).
+// Marktpreis-Map (commodityId -> bester Verkaufspreis/SCU) aus EINEM /trade/market-Call,
+// kurz gecacht. Ersetzt die frueheren N Einzelabrufe fuers Portfolio.
+let marketMap = null, marketMapAt = 0;
+async function getMarketMap(){
+  if(marketMap && (Date.now()-marketMapAt) < 120000) return marketMap;   // 2 Min frisch genug
+  try{
+    const list = await fetch(API+"/trade/market").then(r=>r.json());
+    const m = {};
+    (Array.isArray(list)?list:[]).forEach(x=>{ if(x.commodityId && x.price>0) m[x.commodityId]=x.price; });
+    marketMap = m; marketMapAt = Date.now();
+  }catch(_){ if(!marketMap) marketMap = {}; }
+  return marketMap;
+}
 async function updatePortfolio(open){
   const el = $("#statPortfolio");
   if(!open.length){ if(el) el.textContent="–"; return; }
   const byId = {};
   open.forEach(e=>{ if(e.commodityId) byId[e.commodityId]=(byId[e.commodityId]||0)+(e.units||0); });
+  const market = await getMarketMap();
   const priceById = {};
-  for(const [id,qty] of Object.entries(byId)){
+  for(const id of Object.keys(byId)){
     const ore = oreByCid[id];
     if(ore && ore.refinedSell){ priceById[id]=ore.refinedSell; continue; } // Roherz -> refined-Wert (roh nicht verkaufbar)
-    try{ const d=await fetchBuyers(Number(id), Math.round(qty)); if(d.buyers[0]) priceById[id]=d.buyers[0].price; }catch(_){}
+    if(market[id]) priceById[id] = market[id];                             // ein Call deckt alle Waren ab
   }
   // Gesamt-Kachel
   let est = 0;
@@ -1325,7 +1520,7 @@ function renderModal(){
     const best = (i===0 && system==="Alle");
     return `<div class="dest ${best?'best':''} ${chosen?'chosen':''}">
       <div class="d-info">
-        <div class="d-name">${esc(b.terminal)}${best?' <span class="badge">TOP</span>':''}${chosen?' <span class="badge" style="background:rgba(255,209,102,.2);color:var(--gold)">ZIEL</span>':''}</div>
+        <div class="d-name">${esc(b.terminal)}${best?' <span class="badge">TOP</span>':''}${chosen?' <span class="badge" style="background:rgba(235,195,107,.2);color:var(--gold)">ZIEL</span>':''}</div>
         <div class="d-sys">${esc(b.system)}</div>
         ${termBadge(b.terminalId)}
         ${dem}
@@ -1476,13 +1671,46 @@ function sparkline(arr){
     const y=h-pad - (v-min)/rng*(h-2*pad);
     return x.toFixed(1)+","+y.toFixed(1);
   }).join(" ");
-  const col = arr[arr.length-1] >= arr[0] ? "#00d68f" : "#ff5470";
+  const col = arr[arr.length-1] >= arr[0] ? "#72ba91" : "#ef5454";
   return `<svg class="spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.5" stroke-linejoin="round"/></svg>`;
 }
 async function mktLoad(){
   $("#mktResults").innerHTML=`<div class="spin">⟳ lade Marktdaten…</div>`;
-  try{ const r=await fetch(API+"/trade/market"); mktState=await r.json(); mktRender(); }
+  try{
+    const [market, movers] = await Promise.all([
+      fetch(API+"/trade/market").then(r=>r.json()),
+      fetch(API+"/trade/movers").then(r=>r.json()).catch(()=>null)
+    ]);
+    mktState = market;
+    mktRenderMovers(movers);
+    mktRender();
+  }
   catch(e){ $("#mktResults").innerHTML=`<div class="best-empty">Fehler beim Laden der Marktdaten.</div>`; }
+}
+// Movers: auffaellige Preise (ueber/unter Referenz) + 7-Tage-Bewegungen
+function mktRenderMovers(m){
+  if(!m){ $("#mktMovers").innerHTML=""; return; }
+  const dealRow = (d, updown)=>`
+    <div class="deal">
+      <div class="deal-info"><span class="deal-name">${esc(d.name)}</span><span class="t-sys">${esc(d.terminal)} · ${esc(d.system)}</span></div>
+      <div class="deal-num"><div class="deal-price">${fmt(d.price)}</div><div class="${updown==='up'?'chg-up':'chg-down'}">${d.devPct>=0?'+':''}${d.devPct.toFixed(0)}% vs. Ref</div></div>
+    </div>`;
+  const moveRow = (d, updown)=>`
+    <div class="deal">
+      <div class="deal-info"><span class="deal-name">${esc(d.name)}</span><span class="t-sys">${esc(d.terminal)} · ${esc(d.system)}</span></div>
+      <div class="deal-num"><div class="deal-price">${fmt(d.to)}</div><div class="${updown==='up'?'chg-up':'chg-down'}">${d.changePct>=0?'+':''}${d.changePct.toFixed(0)}%</div></div>
+    </div>`;
+  const box = (title, hint, rows)=> `<div class="mv-box"><div class="mv-head">${title}<span class="t-sys"> ${hint}</span></div>${rows||'<div class="best-empty">—</div>'}</div>`;
+  const sell = (m.sellAbove||[]).slice(0,6).map(d=>dealRow(d,'up')).join("");
+  const buy  = (m.buyBelow||[]).slice(0,6).map(d=>dealRow(d,'down')).join("");
+  const gain = (m.gainers||[]).slice(0,6).map(d=>moveRow(d,'up')).join("");
+  const loss = (m.losers||[]).slice(0,6).map(d=>moveRow(d,'down')).join("");
+  $("#mktMovers").innerHTML = `<div class="mv-grid">
+    ${box("Teuer verkaufen", "über Referenz", sell)}
+    ${box("Günstig kaufen", "unter Referenz", buy)}
+    ${box(`Steiler (${m.historyDays||7}d)`, "im Aufwind", gain)}
+    ${box(`Gefallen (${m.historyDays||7}d)`, "im Abwind", loss)}
+  </div>`;
 }
 function mktRender(){
   if(!mktState) return;
@@ -1703,13 +1931,18 @@ async function rtLoad(){
   const budget = parseFloat($("#rtBudget").value)||0; if(budget>0) p.set("budget", Math.round(budget));
   const origin = $("#rtOrigin").value;                if(origin)   p.set("origin", origin);
   const dest = $("#rtDest").value;                    if(dest)     p.set("dest", dest);
-  if($("#rtAuto").checked)  p.set("autoload","1");   // Bestand/Bedarf ignorieren
-  const load = $("#rtLoadMode").value;                    // Lade-Filter: Aufzug / Auto-Load
-  if(load==="freight") p.set("freightonly","1");     // beide Terminals mit Fracht-Aufzug
-  if(load==="auto")    p.set("autoloadonly","1");    // beide Terminals mit Auto-Load (ATC laedt)
+  if($("#rtAuto").checked)     p.set("autoload","1");     // Nachfrage/Bedarf ignorieren
+  if($("#rtAutoLoad").checked) p.set("autoloadonly","1"); // nur Auto-Load-Frachtdecks (ATC laedt)
+  if($("#rtOnward").checked)   p.set("onward","1");       // Weiterverkauf ab Verkaufsort
   // Terminal-Filter: API erwartet IDs -> Name (exakt) aus termById aufloesen
   const ot = termIdByName($("#rtOriginTerm").value); if(ot) p.set("originTerminal", ot);
   const dt = termIdByName($("#rtDestTerm").value);   if(dt) p.set("destTerminal", dt);
+  // Waren-Modus: eine Ware -> alle lohnenden Paarungen (commodity = uexId aus Warenliste)
+  const cid = nameToId.get(($("#rtCommodity").value||"").trim().toLowerCase());
+  if(cid){ p.set("commodity", cid); p.set("limit","200"); }
+  const minstock = parseFloat($("#rtMinStock").value)||0; if(minstock>0) p.set("minstock", Math.round(minstock));
+  const maxbox   = parseFloat($("#rtMaxBox").value)||0;   if(maxbox>0)   p.set("maxbox", Math.round(maxbox));
+  const illegal  = $("#rtIllegal").value;                 if(illegal)    p.set("illegal", illegal);
   if($("#rtRound").checked) p.set("roundtrip","1");  // Rueckroute zum Start matchen
   $("#rtResults").innerHTML = `<div class="spin">⟳ berechne Routen…</div>`;
   try{
@@ -1767,20 +2000,73 @@ function distText(r){
   }
   return '';
 }
-function rtRow(r, dir){
-  return `<tr class="${dir==='Rück'?'rt-ret':''}">
-    ${dir!==null?`<td class="rt-dir">${dir}</td>`:''}
-    <td class="mat">${esc(r.commodity)}<div class="t-sys ${isStale(r.updatedAt)?'stale':''}">Stand ${agoText(r.updatedAt)||'?'}</div></td>
-    <td>${esc(r.from)}<div class="t-sys">${esc(r.fromSystem)}</div><div>${feBadge(r.fromFreightElevator, r.fromAutoLoad)}</div></td>
-    <td>${esc(r.to)}<div class="t-sys">${esc(r.toSystem)}</div><div>${feBadge(r.toFreightElevator, r.toAutoLoad)}</div><div>${distText(r)}</div></td>
-    <td class="num">${fmt(r.buy)}</td>
-    <td class="num">${fmt(r.sell)}</td>
-    <td class="num">${fmt(r.marginPerScu)}</td>
-    <td class="num">${rtBuyCell(r)}</td>
-    <td class="num">${fmt(r.investment)}</td>
-    <td class="num pos">${fmt(r.profit)}</td>
-    <td class="num">${r.roi!=null?r.roi.toFixed(1)+' %':'–'}</td>
-  </tr>`;
+// Vorrat am Kaufort / Bedarf am Verkaufsort (neue API-Felder stockScu/demandScu)
+function stockLine(v, label){
+  if(v==null) return '';
+  return `<div class="t-sys">${label} ${fmt(v)} SCU</div>`;
+}
+// Pill-Badge fuer die Routen-Karten (Auto-Load / Fracht-Aufzug / Handbeladung)
+function rcBadge(fe, auto){
+  if(auto) return `<span class="pill pill-go">Auto-Load</span>`;
+  if(fe===undefined||fe===null) return '';
+  return fe ? `<span class="pill pill-lift">Fracht-Aufzug</span>`
+            : `<span class="pill pill-hand">Kein Fracht-Aufzug · Handbeladung</span>`;
+}
+// Mittel-Spalte einer Karte: Sprung-Hinweis oder Distanz
+function rcMid(r){
+  if(r.crossSystem) return `<div class="rc-mid"><span class="ar">→</span><span class="rc-jump">⚠ Sprung nötig</span></div>`;
+  const d = r.distanceGm!=null ? `<span class="rc-dist">${r.distanceGm>=10?fmt(Math.round(r.distanceGm)):r.distanceGm.toFixed(1)} Gm</span>` : '';
+  return `<div class="rc-mid"><span class="ar">→</span>${d}</div>`;
+}
+// Meldungs-Zeitpunkt (rot wenn alt)
+function rcMeta(v, label, at){
+  const parts=[];
+  if(v!=null) parts.push(`${label} ${fmt(v)} SCU`);
+  if(at) parts.push(`<span class="${isStale(at)?'stale':''}">Meldung ${agoText(at)}</span>`);
+  return parts.length ? `<div class="rc-meta">${parts.join(" · ")}</div>` : '';
+}
+// eine Route als Karte (ABHOLEN -> LIEFERN), Layout wie citizenhq.space
+function rtCard(r){
+  const boxes = containersText(r);
+  const oldest = Math.min(r.buyAt||r.updatedAt||0, r.sellAt||r.updatedAt||0) || r.updatedAt;
+  return `<div class="rcard">
+    <div class="rc-head">
+      <div>
+        <div class="rc-kicker">Hauptroute · Ware</div>
+        <div class="rc-name">${esc(r.commodity)}${r.illegal?'<span class="ill">illegal</span>':''}</div>
+      </div>
+      <div class="rc-hr">
+        <div class="rc-perscu">${fmt(r.marginPerScu)} aUEC/SCU</div>
+        <div class="rc-age ${isStale(oldest)?'old':''}">Ältester Stand ${agoText(oldest)||'?'}</div>
+      </div>
+    </div>
+    <div class="rc-body">
+      <div class="rc-box">
+        <div class="rc-tag pick">▸ Abholen</div>
+        <div class="rc-loc">${esc(r.from)}</div>
+        <div class="rc-sys">${esc(r.fromSystem)}</div>
+        ${rcBadge(r.fromFreightElevator, r.fromAutoLoad)}
+        <div class="rc-line">Kauf <b>${fmt(r.units)} SCU</b> · ${fmt(r.buy)} aUEC/SCU</div>
+        ${rcMeta(r.stockScu, "Vorrat", r.buyAt)}
+        ${boxes?`<div class="rc-meta">⇒ ${boxes} SCU-Boxen</div>`:''}
+      </div>
+      ${rcMid(r)}
+      <div class="rc-box">
+        <div class="rc-tag drop">▸ Liefern</div>
+        <div class="rc-loc">${esc(r.to)}</div>
+        <div class="rc-sys">${esc(r.toSystem)}</div>
+        ${rcBadge(r.toFreightElevator, r.toAutoLoad)}
+        <div class="rc-line">Verkauf <b>${fmt(r.units)} SCU</b> · ${fmt(r.sell)} aUEC/SCU</div>
+        ${rcMeta(r.demandScu, "Bedarf", r.sellAt)}
+      </div>
+    </div>
+    <div class="rc-foot">
+      <span>Investition <span class="v">${fmt(r.investment)} aUEC</span></span>
+      <span>Gewinn <span class="g">${fmt(r.profit)} aUEC</span></span>
+      <span>ROI <span class="v">${r.roi!=null?r.roi.toFixed(0)+' %':'–'}</span></span>
+      <span class="rc-cta">Voll laden ab ${esc(r.from)} →</span>
+    </div>
+  </div>`;
 }
 
 // ein Bein einer Rundreise
@@ -1794,8 +2080,9 @@ function rtLeg(x, dir, isRet){
   return `<div class="leg ${isRet?'ret':''}">
     <div class="leg-dir">${dir}</div>
     <div>
-      <div class="leg-title">${esc(x.commodity)}</div>
+      <div class="leg-title">${esc(x.commodity)}${x.illegal?' <span class="fe-no">illegal</span>':''}</div>
       <div class="leg-route">${esc(x.from)} <span class="t-sys">(${esc(x.fromSystem)})</span> ${feBadge(x.fromFreightElevator, x.fromAutoLoad)}<span class="arrow">→</span>${esc(x.to)} <span class="t-sys">(${esc(x.toSystem)})</span> ${feBadge(x.toFreightElevator, x.toAutoLoad)} ${distText(x)}</div>
+      <div class="leg-stock">${x.stockScu!=null?`Vorrat ${fmt(x.stockScu)}`:''}${x.stockScu!=null&&x.demandScu!=null?' · ':''}${x.demandScu!=null?`Bedarf ${fmt(x.demandScu)} SCU`:''}</div>
     </div>
     <div class="leg-nums">
       ${buy}
@@ -1806,15 +2093,17 @@ function rtLeg(x, dir, isRet){
   </div>`;
 }
 
-// eine komplette Rundreise als Karte
+// eine komplette Rundreise: Kopf mit Gesamt-Gewinn + HIN/RÜCK als Karten
 function rtLoopCard(r){
-  return `<div class="loop">
-    <div class="loop-head">
+  return `<div class="loop-wrap">
+    <div class="loop-bar">
       <span class="lh-sys">Rundreise · ${esc(r.fromSystem)} ⇄ ${esc(r.toSystem)}</span>
       <span class="loop-total">Gesamt +${fmt(r.totalProfit)} aUEC</span>
     </div>
-    ${rtLeg(r, "HIN", false)}
-    ${rtLeg(r.ret, "RÜCK", true)}
+    <div class="rc-grid">
+      ${rtCard(r)}
+      ${r.ret?rtCard(r.ret):''}
+    </div>
   </div>`;
 }
 
@@ -1830,45 +2119,45 @@ function rtRender(){
       sort==="roi"    ? (b.roi+ (b.ret?b.ret.roi:0)) - (a.roi+(a.ret?a.ret.roi:0)) :
       sort==="margin" ? b.marginPerScu-a.marginPerScu :
       sort==="dist"   ? (a.distanceGm??1e9)-(b.distanceGm??1e9) :
+      sort==="fresh"  ? (b.updatedAt||0)-(a.updatedAt||0) :
+      sort==="pergm"  ? ((b.totalProfit||0)/((b.distanceGm||0)+10))-((a.totalProfit||0)/((a.distanceGm||0)+10)) :
                         (b.totalProfit||0)-(a.totalProfit||0)
     );
     if(!loops.length){ $("#rtResults").innerHTML = `<div class="best-empty">Keine vollständigen Rundreisen im gewählten Zeitraum — Filter lockern oder Rundtrip aus.</div>`; return; }
-    $("#rtResults").innerHTML = loops.map(rtLoopCard).join("");
+    $("#rtResults").innerHTML = resultHead(loops.length, "Rundreisen") + loops.map(rtLoopCard).join("");
     return;
   }
 
-  // Einweg: kompakte Tabelle
+  // Einweg: Ergebnis-Karten (ABHOLEN -> LIEFERN) im Web-Stil
   const list = rtState.filter(r=> withinAge(r.updatedAt, maxAge)).sort((a,b)=>
     sort==="roi"    ? b.roi-a.roi :
     sort==="margin" ? b.marginPerScu-a.marginPerScu :
     sort==="dist"   ? (a.distanceGm??1e9)-(b.distanceGm??1e9) :
+    sort==="fresh"  ? (b.updatedAt||0)-(a.updatedAt||0) :
+    sort==="pergm"  ? (b.profit/((b.distanceGm||0)+10))-(a.profit/((a.distanceGm||0)+10)) :
                       b.profit-a.profit
   );
   if(!list.length){ $("#rtResults").innerHTML = `<div class="best-empty">Keine Routen im gewählten Zeitraum — Filter lockern.</div>`; return; }
-  const rows = list.map(r=> rtRow(r, null)).join("");
-  $("#rtResults").innerHTML = `<div style="overflow-x:auto"><table>
-    <thead><tr>
-      <th>Ware</th><th>Von</th><th>Nach</th>
-      <th class="num">Kauf</th><th class="num">Verkauf</th><th class="num">Marge/SCU</th>
-      <th class="num">Kaufen&nbsp;(SCU)</th><th class="num">Investment</th><th class="num">Gewinn</th><th class="num">ROI</th>
-    </tr></thead><tbody>${rows}</tbody></table></div>`;
+  $("#rtResults").innerHTML = resultHead(list.length, "Routen") + `<div class="rc-grid">${list.map(rtCard).join("")}</div>`;
+}
+// Ergebnis-Kopf: "N Routen · für X SCU" im CitizenHQ-Stil
+function resultHead(n, word){
+  const cargo = parseFloat($("#rtCargo").value)||0;
+  return `<div class="result-head">${n} ${word}${cargo>0?` · für ${fmt(Math.round(cargo))} SCU`:''}</div>`;
 }
 
 $("#rtAge").innerHTML = ageOptionsHTML();
-["rtCargo","rtBudget"].forEach(id=> $("#"+id).addEventListener("input", rtSchedule));
-["rtOrigin","rtDest","rtAuto","rtRound","rtLoadMode"].forEach(id=> $("#"+id).addEventListener("change", rtLoad));
+// Serverseitige Filter aendern NICHT sofort neu laden (kein Flackern) — wie im Web:
+// erst "Routen finden" (oder Enter im Feld) startet die Abfrage.
+["rtCargo","rtBudget","rtMinStock","rtMaxBox"].forEach(id=>
+  $("#"+id).addEventListener("keydown", e=>{ if(e.key==="Enter") rtLoad(); }));
+// Rein clientseitig (sofort, ohne Reload): Sortierung + Alters-Filter
 ["rtSort","rtAge"].forEach(id=> $("#"+id).addEventListener("change", rtRender));
-
-// Terminal-Filter-Combos: Quelle = geladene Terminal-Stammdaten; Neuladen bei
-// Auswahl, beim Leeren oder wenn der getippte Name exakt passt.
+$("#rtGo").addEventListener("click", rtLoad);   // expliziter "Routen finden"-Button
+// Combos nur befuellen (kein Auto-Reload); Auswahl wird beim naechsten "Routen finden" wirksam
+makeCombo($("#rtCommodity"), ()=> commodities.map(c=>({value:c.name})));
 const termComboSource = ()=> Object.values(termById).map(t=> ({value:t.name, label:t.system}));
-["rtOriginTerm","rtDestTerm"].forEach(id=>{
-  makeCombo($("#"+id), termComboSource, ()=> rtLoad());
-  $("#"+id).addEventListener("input", ()=>{
-    const v = $("#"+id).value.trim();
-    if(!v || termIdByName(v)) rtSchedule();
-  });
-});
+["rtOriginTerm","rtDestTerm"].forEach(id=> makeCombo($("#"+id), termComboSource));
 
 // ---- Menge: Anzahl x Container -> SCU (live berechnet, beim Speichern genutzt) ----
 function updateUnits(){
@@ -1999,6 +2288,7 @@ async function openSettings(){
   $("#settingsModal").style.display = "flex";
   try{ const v = await window.goVersion(); $("#setVer").textContent = "Version "+v; }catch(_){}
   try{ const on = await window.goGetAutostart(); $("#optAutostart").checked = !!on; }catch(_){}
+  try{ const s = await window.goGetSettings(); $("#optLean").checked = !!(s && s.leanMode); }catch(_){}
   if(window.goDataPath){ try{ $("#setDataPath").textContent = "Daten: "+(await window.goDataPath()); }catch(_){} }
   $("#setUpdMsg").textContent = "";
 }
@@ -2011,6 +2301,13 @@ $("#optAutostart").addEventListener("change", async e=>{
     e.target.checked = !!on;
     toast(on ? "Autostart aktiviert" : "Autostart deaktiviert");
   }catch(err){ toast("Autostart-Fehler"); e.target.checked=!e.target.checked; }
+});
+$("#optLean").addEventListener("change", async e=>{
+  try{
+    const s = await window.goSetLean(e.target.checked);
+    e.target.checked = !!(s && s.leanMode);
+    toast((e.target.checked?"Schlanker Modus an":"Schlanker Modus aus")+" — wirkt nach Neustart");
+  }catch(err){ toast("Konnte Einstellung nicht speichern"); e.target.checked=!e.target.checked; }
 });
 $("#setCheckUpd").addEventListener("click", async ()=>{
   const msg=$("#setUpdMsg"); msg.textContent="⟳ prüfe…";
@@ -2044,12 +2341,11 @@ async function checkForUpdate(){
 // Mining-Board einmal laden -> Roherz-Erkennung + refined Werte im Cargo-Log
 let oreByCid = {};
 async function loadOreMap(){
-  try{
-    const board = await fetch(API+"/mining/board").then(r=>r.json());
+  await withCache("oreboard", API+"/mining/board", (board)=>{
     const m = {};
-    board.forEach(o=>{ if(o.oreId) m[o.oreId] = o; });
+    (Array.isArray(board)?board:[]).forEach(o=>{ if(o.oreId) m[o.oreId] = o; });
     oreByCid = m;
-  }catch(_){}
+  });
 }
 
 // go
