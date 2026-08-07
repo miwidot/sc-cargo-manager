@@ -7,11 +7,17 @@ und dein Standard-Schiff samt **Überlade-Warnung** verwalten. Daten von
 
 ## Download & Start
 
-Neueste `sc-cargo-manager.exe` unter **[Releases](https://github.com/miwidot/sc-cargo-manager/releases)**
+**Windows:** Neueste `sc-cargo-manager.exe` unter **[Releases](https://github.com/miwidot/sc-cargo-manager/releases)**
 laden und starten. Kein Installer, kein Server, kein offener Port → keine Firewall-Abfrage.
 Das Programm **aktualisiert sich selbst** (fragt beim Start nach neuen Versionen).
 
-Aus Quellcode: Doppelklick auf **`start.bat`** (baut & startet, benötigt [Go](https://go.dev/dl)).
+**Linux:** `sc-cargo-manager-linux` aus den Releases laden. Benötigt WebKitGTK + GTK3
+(Arch: `sudo pacman -S webkit2gtk gtk3` · Ubuntu/Debian: `sudo apt install libwebkit2gtk-4.0-37 libgtk-3-0`),
+dann `chmod +x sc-cargo-manager-linux && ./sc-cargo-manager-linux`. Auf Linux mit nativer
+Fensterdeko (die eigene Titelleiste ist Windows-spezifisch); Funktionen identisch.
+
+Aus Quellcode: Windows → Doppelklick auf **`start.bat`**; Linux → `CGO_ENABLED=1 go build .`
+(benötigt [Go](https://go.dev/dl) + WebKitGTK-Dev-Pakete).
 
 ## Funktionen
 

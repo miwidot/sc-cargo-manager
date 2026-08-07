@@ -30,7 +30,7 @@ func assetMatchesOS(name string) bool {
 }
 
 // version ist die aktuelle Programmversion (bei Release erhoehen + Tag vX.Y.Z pushen).
-const version = "1.0.16"
+const version = "1.0.17"
 
 const releaseAPI = "https://api.github.com/repos/miwidot/sc-cargo-manager/releases/latest"
 
