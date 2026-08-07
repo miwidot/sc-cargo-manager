@@ -1,0 +1,44 @@
+name: Build Linux
+
+# Baut die Linux-Binary (webview_go / WebKitGTK) auf GitHubs kostenlosen Ubuntu-
+# Runnern und haengt sie beim Tag-Push v* ans zugehoerige Release.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: WebKitGTK-Abhaengigkeiten installieren
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev
+
+      - name: Linux-Binary bauen
+        run: |
+          CGO_ENABLED=1 go build -trimpath -ldflags="-s -w" -o sc-cargo-manager-linux .
+          chmod +x sc-cargo-manager-linux
+          file sc-cargo-manager-linux
+
+      - name: Als Workflow-Artefakt ablegen
+        uses: actions/upload-artifact@v4
+        with:
+          name: sc-cargo-manager-linux
+          path: sc-cargo-manager-linux
+
+      - name: Ans Release haengen (bei Tag)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: sc-cargo-manager-linux
