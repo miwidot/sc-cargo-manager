@@ -904,8 +904,16 @@ let debounceT = null;
 const fmt = n => (n==null||isNaN(n)) ? "–" : Math.round(n).toLocaleString("de-DE");
 function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),1800); }
 
-// ---- eigene Titelleiste: Fenster ziehen/min/max/schliessen ----
-(function initTitlebar(){
+// ---- eigene Titelleiste: nur auf Windows (rahmenloses Fenster). Auf Linux/macOS
+//      nutzt das Fenster die native Deko -> Titelleiste ausblenden. ----
+(async function initTitlebar(){
+  let plat = "windows";
+  try{ if(window.goPlatform) plat = await window.goPlatform(); }catch(_){}
+  if(plat !== "windows"){
+    const tb = $("#titlebar"); if(tb) tb.style.display = "none";
+    document.body.style.paddingTop = "0";   // Platz fuer die Custom-Titelleiste entfaellt
+    return;
+  }
   const drag = $("#tbDrag");
   drag.addEventListener("mousedown", e=>{ if(e.button===0 && window.goWinDrag) window.goWinDrag(); });
   drag.addEventListener("dblclick", ()=>{ window.goWinMax && window.goWinMax(); });

@@ -9,10 +9,25 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
 )
+
+// assetMatchesOS waehlt das zum laufenden Betriebssystem passende Release-Asset:
+// Windows -> *.exe, Linux -> Name enthaelt "linux".
+func assetMatchesOS(name string) bool {
+	n := strings.ToLower(name)
+	switch runtime.GOOS {
+	case "windows":
+		return strings.HasSuffix(n, ".exe")
+	case "linux":
+		return strings.Contains(n, "linux")
+	default:
+		return strings.Contains(n, runtime.GOOS)
+	}
+}
 
 // version ist die aktuelle Programmversion (bei Release erhoehen + Tag vX.Y.Z pushen).
 const version = "1.0.16"
@@ -62,7 +77,7 @@ func checkUpdate() (UpdateInfo, error) {
 	info.HTMLURL = rel.HTMLURL
 	info.Notes = rel.Body
 	for _, a := range rel.Assets {
-		if strings.HasSuffix(strings.ToLower(a.Name), ".exe") {
+		if assetMatchesOS(a.Name) {
 			info.DownloadURL = a.BrowserDownloadURL
 			break
 		}

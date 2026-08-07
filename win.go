@@ -1,19 +1,15 @@
+//go:build windows
+
 // Rahmenloses Fenster + eigene Titelleiste: entfernt die native Windows-Titelleiste
 // (WS_CAPTION) und stellt Funktionen fuer Ziehen/Minimieren/Maximieren/Schliessen
 // bereit, die aus der HTML-Titelleiste heraus aufgerufen werden.
 package main
 
 import (
-	"os/exec"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
 )
-
-// openExternal oeffnet eine URL im Standard-Browser (nicht im WebView).
-func openExternal(url string) {
-	_ = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
-}
 
 var (
 	user32            = windows.NewLazySystemDLL("user32.dll")

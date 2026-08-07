@@ -1,3 +1,5 @@
+//go:build windows
+
 // Windows-Autostart (sicher, ohne Admin): setzt/entfernt einen Wert im per-User
 // HKCU Run-Key. Betrifft nur den aktuellen Benutzer, keine erhoehten Rechte noetig.
 package main
