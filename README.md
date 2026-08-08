@@ -11,13 +11,18 @@ und dein Standard-Schiff samt **Überlade-Warnung** verwalten. Daten von
 laden und starten. Kein Installer, kein Server, kein offener Port → keine Firewall-Abfrage.
 Das Programm **aktualisiert sich selbst** (fragt beim Start nach neuen Versionen).
 
-**Linux:** `sc-cargo-manager-linux` aus den Releases laden. Benötigt WebKitGTK + GTK3
-(Arch: `sudo pacman -S webkit2gtk gtk3` · Ubuntu/Debian: `sudo apt install libwebkit2gtk-4.0-37 libgtk-3-0`),
+**Linux:** `sc-cargo-manager-linux` aus den Releases laden. Benötigt WebKitGTK 4.1 + GTK3
+(Arch: `sudo pacman -S webkit2gtk-4.1 gtk3` · Ubuntu/Debian: `sudo apt install libwebkit2gtk-4.1-0 libgtk-3-0`),
 dann `chmod +x sc-cargo-manager-linux && ./sc-cargo-manager-linux`. Auf Linux mit nativer
 Fensterdeko (die eigene Titelleiste ist Windows-spezifisch); Funktionen identisch.
 
-Aus Quellcode: Windows → Doppelklick auf **`start.bat`**; Linux → `CGO_ENABLED=1 go build .`
-(benötigt [Go](https://go.dev/dl) + WebKitGTK-Dev-Pakete).
+Aus Quellcode: Windows → Doppelklick auf **`start.bat`**; Linux → gegen 4.1 bauen:
+```
+PKG_CONFIG_PATH="/tmp/pc:$(pkg-config --variable pc_path pkg-config)"
+printf 'Name: webkit2gtk-4.0\nVersion: 2.44\nRequires: webkit2gtk-4.1\n' > /tmp/pc/webkit2gtk-4.0.pc
+CGO_ENABLED=1 go build .
+```
+(benötigt [Go](https://go.dev/dl) + `webkit2gtk-4.1`/`gtk3`-Dev-Pakete.)
 
 ## Funktionen
 

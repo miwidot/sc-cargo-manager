@@ -1,7 +1,9 @@
 name: Build Linux
 
-# Baut die Linux-Binary (webview_go / WebKitGTK) auf GitHubs kostenlosen Ubuntu-
-# Runnern und haengt sie beim Tag-Push v* ans zugehoerige Release.
+# Baut die Linux-Binary auf GitHubs kostenlosen Ubuntu-Runnern und haengt sie beim
+# Tag-Push v* ans Release. webview_go linkt fest gegen webkit2gtk-4.0; da 4.0 auf
+# aktuellen Distros (Arch, Ubuntu 24.04) nicht mehr Standard ist, bauen wir gegen
+# webkit2gtk-4.1 und leiten den 4.0-pkg-config-Namen per Shim darauf um.
 on:
   push:
     tags: ['v*']
@@ -12,7 +14,7 @@ permissions:
 
 jobs:
   linux:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -20,15 +22,25 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: WebKitGTK-Abhaengigkeiten installieren
+      - name: WebKitGTK 4.1 installieren + pkg-config-Shim (4.0 -> 4.1)
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev pkg-config
+          mkdir -p "$HOME/pcshim"
+          {
+            echo "Name: webkit2gtk-4.0"
+            echo "Description: Shim, verweist auf webkit2gtk-4.1"
+            echo "Version: 2.44.0"
+            echo "Requires: webkit2gtk-4.1"
+          } > "$HOME/pcshim/webkit2gtk-4.0.pc"
 
-      - name: Linux-Binary bauen
+      - name: Linux-Binary bauen (gegen 4.1)
         run: |
+          export PKG_CONFIG_PATH="$HOME/pcshim:$(pkg-config --variable pc_path pkg-config)"
           CGO_ENABLED=1 go build -trimpath -ldflags="-s -w" -o sc-cargo-manager-linux .
           chmod +x sc-cargo-manager-linux
+          echo "=== verlinkte webkit-Bibliothek ==="
+          ldd sc-cargo-manager-linux | grep -i webkit || true
           file sc-cargo-manager-linux
 
       - name: Als Workflow-Artefakt ablegen
